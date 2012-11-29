@@ -42,10 +42,10 @@
 
     class CardinalityValidator < ActiveModel::EachValidator 
       def validate_each(record, attribute, value)
-        raise ArgumentError, "CardinalityValidator for #{attribute} needs options :maximum and/or :minimun." \
+        raise ArgumentError, "CardinalityValidator for #{attribute} needs options :max and/or :minimun." \
           if options.length == 0
 
-        [:maximum, :minimun].each do |attr|
+        [:max, :minimun].each do |attr|
           raise ArgumentError, "#{attr} has to be a non-negative integer " \
             unless not options[attr] or (options[attr].instance_of?(Fixnum) or options[attr] >= 0)
         end
@@ -54,14 +54,14 @@
         return if value == nil
 
         if value.kind_of?(Array)
-          if (options[:minimum]  and value.length < options[:minimum]) or \
-              (options[:maximum]  and value.length > options[:maximum])
+          if (options[:min]  and value.length < options[:min]) or \
+              (options[:max]  and value.length > options[:max])
             record.errors[attribute] << \
             (options[:message] || "#{attribute}.length = #{value.length}. It does not satisfy cardinality #{options}")
           end
         else
           #TODO: cardinality check for non-array values. 
-          if options[:minimum] and options[:minimum] > 1
+          if options[:min] and options[:min] > 1
             record.errors[attribute] << \
             (options[:message] || "#{attribute}.length = #{value.length}. It does not satisfy cardinality #{options}")
           end
