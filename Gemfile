@@ -5,7 +5,12 @@ gemspec
 gem 'rake'
 gem 'activemodel', '>= 3.2.8'
 gem "uuid", "~> 2.3.5"
-
-#TODO: eventually this should get the real gem
-gem 'sparql_http', '>= 0.0.1', :path => '/Users/manuelso/work/stanford/workspace/sparql_http'
 gem 'pry'
+
+# NCBO gems (can be from a local dev path or from rubygems/git)
+gemfile_local = File.expand_path("../Gemfile.local", __FILE__)
+if File.exists?(gemfile_local)
+  self.instance_eval(Bundler.read_file(gemfile_local))
+else
+  gem 'sparql_http', :git => 'https://github.com/ncbo/sparql_http.git'
+end
