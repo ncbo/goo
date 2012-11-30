@@ -37,7 +37,6 @@ module Goo
                   "Cannot set up resource_ID #{resource_id} in a persistent obj."
           end
         end
-
         if not SparqlRd::Utils::Http.valid_uri?(resource_id.value)
           raise ArgumentError, "resource_id '#{resource_id}' must be a valid IRI."
         end

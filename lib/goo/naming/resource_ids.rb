@@ -48,7 +48,11 @@ module Goo
 
     class AnonymousPolicy
       def self.getResourceId(model)
-        return RDF::BNode.new(model.hash)
+        if Goo.is_skolem_supported?
+          return RDF::BNode.new(model.hash)
+        end
+        uri = Goo::Naming.get_vocabularies.default + ".well-known/genid/" + model.uuid
+        return RDF::BNode.new(uri)
       end
     end
 

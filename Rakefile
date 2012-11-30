@@ -25,6 +25,12 @@ end
 
 Rake::TestTask.new do |t|
   t.libs = []
+  t.name = "test:review"
+  t.test_files = FileList['test/test_review.rb']
+end
+
+Rake::TestTask.new do |t|
+  t.libs = []
   t.name = "test:dependent"
   t.test_files = FileList['test/test_model_dependent.rb']
 end

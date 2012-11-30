@@ -40,7 +40,7 @@ class TestModelUnnamed < TestCase
     obj.name = "some value"
     obj.prop1 = 1
     obj.save
-    assert_equal true, obj.exist?
+    assert_equal true, obj.exist?(reload=true)
     load_obj = Unnamed.new
     load_obj.load(obj.resource_id)
     assert_equal obj.prop1, load_obj.prop1
@@ -54,6 +54,26 @@ class TestModelUnnamed < TestCase
     assert_equal obj.resource_id.value, load_obj.resource_id.value
     load_obj.delete
     assert_equal false, load_obj.exist?(reload=true)
+  end
+
+  def test_named_new_from_hash
+    list = Unnamed.search({})
+    list.each do |u|
+      u.load
+      u.delete
+    end
+    list = Unnamed.search({})
+    assert_equal 0, list.length
+    unn = Unnamed.new({:name => "some value"})
+    unn.save
+    list = Unnamed.search({})
+    assert_equal 1, list.length
+    list.each do |u|
+      u.load
+      u.delete
+    end
+    list = Unnamed.search({})
+    assert_equal 0, list.length
   end
 
   def test_named_depends_on_unnnamed

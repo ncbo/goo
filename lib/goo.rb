@@ -17,7 +17,8 @@ module Goo
   @@_configuration = {}
   @@_default_store = nil
   @@_uuid_generator = nil
-
+  @@_support_skolem = false
+  
   def self.configure
     raise ArgumentError, "Configuration needs to receive a code block" \
       if not block_given?
@@ -35,6 +36,7 @@ module Goo
     @@_default_store = SparqlRd::Repository.endpoint(stores[0][:name]) \
       if @@_default_store.nil?
     @@_uuid_generator = UUID.new
+    Goo::Naming::Skolem.detect
   end
 
   def self.uuid
@@ -48,4 +50,7 @@ module Goo
     return SparqlRd::Repository.endpoint(name)
   end
 
+  def self.is_skolem_supported?
+    @@_support_skolem
+  end
 end
