@@ -5,7 +5,6 @@ module Goo
   module Base
 
     class Resource < OpenStruct
-      include ActiveModel::Validations
       include Goo::Base::Settings
 
       attr_reader :attributes
@@ -16,12 +15,8 @@ module Goo
           unless model != nil
         raise ArgumentError, "Can't create model, model settings do not contain graph policy." \
           unless self.class.goop_settings[:graph_policy] != nil
-        @_global_vocabularies = Goo::Naming.get_vocabularies
-        if @_global_vocabularies.default.nil?
-          raise ModelNotRegistered, "Model '#{model}' not found in vocabularies." \
-            unless @_global_vocabularies.is_model_registered(self.class)
-        end
         super()
+
         @attributes = attributes.dup
         @attributes[:internals] = Internals.new(self)
         @attributes[:internals].new_resource
@@ -37,7 +32,12 @@ module Goo
           end
         end
       end
-     
+
+      def self.inherited(subclass)
+        #hook to set up default configuration.
+        subclass.model
+      end 
+
       def contains_data?
         ((@attributes.has_key? :internals) and @attributes.length > 1) or
           ((not @attributes.has_key? :internals) and @attributes.length > 0)
@@ -46,24 +46,17 @@ module Goo
       def internals()
         @attributes[:internals]
       end
-      
-      def attribute_validators(attr)
-        validators = []
-        #TODO some indexing here might help
-        self.class.validators.each do |val| 
-          validators << val if val.attributes.include? attr.to_sym
-        end
-        return validators
-      end
 
       def shape_attribute(attr)
         attr = attr.to_sym
-        validators = attribute_validators(attr)
-        validators.select! { |val| val.kind_of? CardinalityValidator }
-        if validators.length > 1
-          raise StatusException, "Error: >1 cardinality object in attribute #{attr}"
+        validators = self.class.attribute_validators(attr)
+        cardinality_opt = validators[:cardinality]
+        card_validator = nil
+        if cardinality_opt
+          card_validator = Goo::Validators::CardinalityValidator.new(cardinality_opt)
         end
-        prx = AttributeValueProxy.new(validators[0],@attributes[:internals])
+        prx = AttributeValueProxy.new(card_validator,
+                                      @attributes[:internals])
         define_singleton_method("#{attr}=") do |*args|
           current_value = @table[attr]
           tvalue = prx.call({ :value => args, :attr => attr, 
@@ -97,8 +90,8 @@ module Goo
           
           #set to nil all the known properties via validators
           keys_attr = @attributes.keys
-          self.class.validators.each do |val|
-            keys_attr = keys_attr | val.attributes
+          self.class.attributes.each do |att_name, options|
+            keys_attr << att_name
           end
           keys_attr.each do |attr|
             next if attr == :internals
@@ -337,6 +330,10 @@ module Goo
         inst = model_class.new
         inst.load(resource_id)
         return inst
+      end
+
+      def valid?
+        binding.pry
       end
 
     end

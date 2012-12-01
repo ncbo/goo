@@ -1,6 +1,6 @@
 require_relative 'test_case'
 
-class CustomValidator < ActiveModel::EachValidator 
+class CustomValidator < Goo::Validators::Validator 
   def validate_each(record, attribute, value)
     return if value.nil? #other validators will take care of Cardinality.
     values = value
@@ -16,23 +16,21 @@ class CustomValidator < ActiveModel::EachValidator
   end
 end
 
+#zero conf model
 class ContactData < Goo::Base::Resource
-  model :contact_data
   def initialize(attributes = {})
     super(attributes)
   end
 end
 
 class Person < Goo::Base::Resource
-  model :person
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
-  validates :multiple_vals, :cardinality => { :maximum => 2 }
-  validates :birth_date, :date_time_xsd => true, :presence => true, :cardinality => { :maximum => 1 }
-  validates :contact_data , :instance_of => { :with => :contact_data }
-  validates :custom_values , :custom => { :with_max => 999 }
-  validates :numbers , :instance_of => { :with => Fixnum }
-  unique :name
-  graph_policy :type_id_graph_policy
+  model :PersonResource, :namespace => :metadata
+  attribute :name, :namespace => :omv, :unique => true
+  attribute :multiple_vals, :cardinality => { :max => 2 }
+  attribute :birth_date, :date_time_xsd => true, :single_value => true , :not_nil => :true
+  attribute :contact_data , :instance_of => { :with => :contact_data }, :optional =>true
+  attribute :custom_values , :custom => { :with_max => 999 }
+  attribute :numbers , :instance_of => { :with => Fixnum }
 
   def initialize(attributes = {})
     super(attributes)
@@ -43,27 +41,21 @@ class TestModelPersonA < TestCase
 
   def initialize(*args)
     super(*args)
-    voc = Goo::Naming.get_vocabularies
-    if not voc.is_type_registered? :person
-      voc.register_model(:foaf, :person, Person)
-      voc.register_model(:foaf, :contact_data, ContactData)
-    else
-      raise StandarError, "Error conf unit test" if :person != voc.get_model_registry(Person)[:type]
-      raise StandarError, "Error conf unit test" if :contact_data != voc.get_model_registry(ContactData)[:type]
-    end
   end
 
   def test_person
     person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"), :some_stuff => [1]})
     assert_instance_of Hash, person.class.goop_settings
-    assert_equal :person, person.class.goop_settings[:model]
+    assert_equal :PersonResource, person.class.goop_settings[:model]
     assert_equal "Goo Fernandez", person.name
     assert_equal [1], person.some_stuff 
     assert_equal DateTime.parse("2012-10-04T07:00:00.000Z"), person.birth_date
+    binding.pry
     assert_equal true, person.valid?
   end
   
   def test_cardinality
+    binding.pry
     person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"), :some_stuff => [1]})
     person.multiple_vals= 1 
     person.multiple_vals << 2 

@@ -16,23 +16,23 @@ module Goo
           return value
         end
         if value.kind_of? Array
-          if @validator.options[:maximum] and value.length > @validator.options[:maximum] 
+          if @validator.options[:max] and value.length > @validator.options[:max] 
             raise ArgumentError, "Attribute '#{attr}' does not satisfy max cardinality."
           end
-          if @validator.options[:minimun] and value.length < @validator.options[:minimun]
+          if @validator.options[:min] and value.length < @validator.options[:min]
             raise ArgumentError, "Attribute '#{attr}' does not satisfy min cardinality."
           end
-          if @validator.options[:maximum] and @validator.options[:maximum] == 1
+          if @validator.options[:max] and @validator.options[:max] == 1
             return value[0]
           end
         else #not an array
-          if (not @validator.options[:maximum]) or @validator.options[:maximum] > 1
+          if (not @validator.options[:max]) or @validator.options[:max] > 1
             return [value]
           end
-          if @validator.options[:maximum] and @validator.options[:maximum] == 1
+          if @validator.options[:max] and @validator.options[:max] == 1
             return value
           end
-          if @validator.options[:minimun] and @validator.options[:minimun] > 0
+          if @validator.options[:min] and @validator.options[:min] > 0
             return [value]
           end
         end

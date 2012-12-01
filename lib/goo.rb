@@ -13,15 +13,31 @@ require_relative "goo/utils/utils"
 module Goo 
 
   @@_configuration = {}
+  @@_models = Set.new
   @@_default_store = nil
   @@_uuid_generator = nil
   @@_support_skolem = false
+  @@_validators = {}
   
+  def self.models
+    @@_models
+  end
+
   def self.configure
     raise ArgumentError, "Configuration needs to receive a code block" \
       if not block_given?
 
     yield @@_configuration
+    unless @@_configuration.has_key? :namespaces
+      raise ArgumentError, "Namespaces needs to be provided."
+    end
+    unless @@_configuration[:namespaces].has_key? :default
+      raise ArgumentError, "Default namespaces needs to be provided."
+    end
+    unless @@_configuration[:namespaces][:default].kind_of? Symbol and\
+           @@_configuration[:namespaces].has_key? @@_configuration[:namespaces][:default]
+      raise ArgumentError, "Default namespace must be a symbol pointing to other ns."
+    end
     raise ArgumentError, "Store configuration not found in configuration" \
       unless @@_configuration.has_key? :stores
     stores = @@_configuration[:stores]
@@ -51,4 +67,18 @@ module Goo
   def self.is_skolem_supported?
     @@_support_skolem
   end
+
+  def self.register_validator(name,obj)
+    @@_validators[name] = obj
+  end
+
+  def self.validators
+    @@_validators
+  end
+
+  def self.namespaces
+    return @@_configuration[:configuration]
+  end
 end
+
+require_relative "goo/validators/validators"

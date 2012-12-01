@@ -5,6 +5,10 @@ module Goo
     end
     class InvalidGraphId < StandardError
     end
+    
+    def self.default_graph_id_generator
+      :type_id_graph_policy
+    end
 
     def self.get_graph_id(model_class)
       policy = model_class.goop_settings[:graph_policy] 

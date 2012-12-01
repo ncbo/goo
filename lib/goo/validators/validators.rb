@@ -1,7 +1,24 @@
-##TODO need to fix this for dynamic loading. Just good like for the moment.
-#module Goo
-#  module Validators
-    class DateTimeXsdValidator < ActiveModel::EachValidator 
+module Goo
+  module Validators
+    
+    class Validator
+      attr_reader :options
+
+      def initialize(options)
+        @options = options
+      end
+
+      def self.inherited(validator)
+        name = validator.name.split("::")[-1].underscore
+        if name.end_with? "_validator"
+          name = name[0..-11]
+        end
+        Goo.register_validator name.to_sym, validator
+      end
+
+    end
+
+    class DateTimeXsdValidator < Validator 
       def validate_each(record, attribute, value)
         begin
           #why do I need module here.
@@ -17,7 +34,7 @@
       end
     end
 
-    class InstanceOfValidator < ActiveModel::EachValidator 
+    class InstanceOfValidator < Validator 
       def validate_each(record, attribute, value)
         return if value.nil? #other validators will take care of Cardinality.
         vocs = Goo::Naming.get_vocabularies
@@ -40,7 +57,7 @@
       end
     end
 
-    class CardinalityValidator < ActiveModel::EachValidator 
+    class CardinalityValidator < Validator 
       def validate_each(record, attribute, value)
         raise ArgumentError, "CardinalityValidator for #{attribute} needs options :max and/or :minimun." \
           if options.length == 0
@@ -68,5 +85,5 @@
         end
       end
     end 
-#  end
-#end
+  end
+end
