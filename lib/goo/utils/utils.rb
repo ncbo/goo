@@ -1,5 +1,4 @@
 require 'date'
-require "active_model"
 require "uri"
 
 require_relative "rdf"

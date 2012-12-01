@@ -1,13 +1,11 @@
 require "pry"
 require "sparql_http"
 
-require "active_model"
 require "ostruct"
 require "set"
 require "uri"
 require "uuid"
 
-require_relative "goo/validators/validators"
 require_relative "goo/base/base"
 require_relative "goo/naming/naming"
 require_relative "goo/utils/utils"

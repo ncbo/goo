@@ -3,7 +3,6 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'rake'
-gem 'activemodel', '>= 3.2.8'
 gem "uuid", "~> 2.3.5"
 gem 'pry'
 
