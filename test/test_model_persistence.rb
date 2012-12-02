@@ -1,9 +1,11 @@
 require_relative 'test_case'
 
+TestInit.configure_goo
+
 class StatusPersist < Goo::Base::Resource
   model :status
-  validates :description, :presence => true, :cardinality => { :maximum => 1 }
-  unique :description
+  attribute :description, :unique
+
   def initialize(attributes = {})
     super(attributes)
   end
@@ -11,11 +13,9 @@ end
 
 class PersonPersist < Goo::Base::Resource
   model :person
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
-  validates :multiple_vals, :cardinality => { :maximum => 2 }
-  validates :birth_date, :date_time_xsd => true, :presence => true, :cardinality => { :maximum => 1 }
-  unique :name
-  graph_policy :type_id_graph_policy
+  attribute :name, :unique
+  attribute :multiple_vals, :cardinality => { :maximum => 2 }
+  attribute :birth_date, :date_time_xsd => true, :cardinality => { :max => 1, :min => 1  }
 
   def initialize(attributes = {})
     super(attributes)
@@ -26,15 +26,7 @@ class TestModelPersonPersistB < TestCase
 
   def initialize(*args)
     super(*args)
-    voc = Goo::Naming.get_vocabularies
-    if not voc.is_type_registered? :personp
-      voc.register_model(:foaf, :personp, PersonPersist)
-      voc.register_model(:foaf, :statusp, StatusPersist)
-    else
-      raise StandarError, "Error conf unit test" if :personp != voc.get_model_registry(PersonPersist)[:type]
-      raise StandarError, "Error conf unit test" if :statusp != voc.get_model_registry(StatusPersist)[:type]
-    end
-  end
+ end
 
   def test_person_save
     person = PersonPersist.new({:name => "Goo Fernandez",

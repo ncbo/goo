@@ -36,7 +36,6 @@ eos
 
     def self.get_resource_attributes(resource_id, model_class, store_name)
       epr = Goo.store(store_name)
-      vocabs = Goo::Naming.get_vocabularies
       q = <<eos
 SELECT DISTINCT * WHERE { #{resource_id.to_turtle} ?predicate ?object }
 eos
