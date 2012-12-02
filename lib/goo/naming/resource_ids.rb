@@ -37,7 +37,7 @@ module Goo
           name << field_value
         end
         uri_last_fragment = URI.encode(name.join "+")
-        
+        binding.pry 
         vocabs = Goo::Naming.get_vocabularies 
         reg = vocabs.get_model_registry(model.class)
         prefix = vocabs.get_prefix reg[:prefix] 
@@ -48,10 +48,10 @@ module Goo
 
     class AnonymousPolicy
       def self.getResourceId(model)
-        if Goo.is_skolem_supported?
+        if false and Goo.is_skolem_supported?
           return RDF::BNode.new(model.hash)
         end
-        uri = Goo::Naming.get_vocabularies.default + ".well-known/genid/" + model.uuid
+        uri = model.class.prefix + ".well-known/genid/" + model.uuid
         return RDF::BNode.new(uri)
       end
     end

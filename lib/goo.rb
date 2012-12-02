@@ -50,7 +50,7 @@ module Goo
     @@_default_store = SparqlRd::Repository.endpoint(stores[0][:name]) \
       if @@_default_store.nil?
     @@_uuid_generator = UUID.new
-    Goo::Naming::Skolem.detect
+    @@_support_skolem = Goo::Naming::Skolem.detect
   end
 
   def self.uuid
@@ -77,7 +77,7 @@ module Goo
   end
 
   def self.namespaces
-    return @@_configuration[:configuration]
+    return @@_configuration[:namespaces]
   end
 end
 

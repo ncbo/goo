@@ -1,5 +1,7 @@
 require_relative 'test_case'
 
+TestInit.configure_goo
+
 class CustomValidator < Goo::Validators::Validator 
   def validate_each(record, attribute, value)
     return if value.nil? #other validators will take care of Cardinality.
@@ -50,12 +52,10 @@ class TestModelPersonA < TestCase
     assert_equal "Goo Fernandez", person.name
     assert_equal [1], person.some_stuff 
     assert_equal DateTime.parse("2012-10-04T07:00:00.000Z"), person.birth_date
-    binding.pry
     assert_equal true, person.valid?
   end
   
   def test_cardinality
-    binding.pry
     person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"), :some_stuff => [1]})
     person.multiple_vals= 1 
     person.multiple_vals << 2 

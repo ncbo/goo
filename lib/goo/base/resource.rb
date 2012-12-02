@@ -8,6 +8,7 @@ module Goo
       include Goo::Base::Settings
 
       attr_reader :attributes
+      attr_reader :errors
       
       def initialize(attributes) 
         model = self.class.goop_settings[:model]
@@ -332,8 +333,31 @@ module Goo
         return inst
       end
 
+      def errors
+        return internals.errors
+      end
+
       def valid?
-        binding.pry
+        internals.errors = Hash.new()
+        self.class.attributes.each do |att,att_options|
+          internals.errors[att] = []
+        end
+        self.class.attributes.each do |att,att_options|
+          if att_options[:validators] and att_options[:validators].length > 0
+            att_options[:validators].each do |val, val_options|
+              if not Goo.validators.include? val
+                raise ArgumentError, "Validator #{val} cannot be found"
+              end
+              if not val_options.include? :instance
+                validator = Goo.validators[val].new(val_options)
+                val_options[:instance] = validator
+              end
+              val_options[:instance].validate_each(self,att,@table[att])
+            end
+          end
+        end
+        internals.errors.reject! { |att,val| val.length == 0 }
+        return (internals.errors.length == 0)
       end
 
     end

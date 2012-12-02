@@ -7,6 +7,7 @@ module Goo
       attr_reader :modified
       attr_reader :loaded_dependencies
       attr_reader :store_name
+      attr_accessor :errors
       
       alias :modified? :modified 
 
@@ -70,19 +71,6 @@ module Goo
       def update?
         if not persistent
           raise StatusException, "Object not persistent. It cannot be updated. Save first"
-        end
-      end
-
-      def save?
-        if not @_base_instance.valid?
-          raise NotValidException, "Object not valid. It cannot be saved. Check errors."
-        end
-        
-        save_policy = @_base_instance.class.goop_settings[:unique][:policy]
-
-        if @_base_instance.exist?(reload=true) and not persistent and save_policy == :unique 
-          raise DuplicateResourceError, "Object cannot be saved." +
-          " Resource '#{@_id}' exist in the store and cannot be replaced"
         end
       end
 

@@ -30,7 +30,8 @@ module Goo
         else
           ns = options
         end
-        if Goo.namespaces
+        ns = ns.to_sym
+        if not Goo.namespaces.include? ns
           raise ArgumentError, "Namespace #{ns} is not registered in Goo"
         end
 
@@ -76,9 +77,26 @@ module Goo
         end
         
         def attributes(*args)
-          return self.goop_settings[:attributes]
+          return self.goop_settings[:attributes].clone
         end
 
+        def type_uri
+          return prefix + goop_settings[:model].to_s
+        end
+
+        def prefix
+          ns = self.goop_settings[:namespace]
+          pref = Goo.namespaces[ns]
+          if pref.nil?
+            raise ArgumentError, "Namespace `#{ns}` not configured in Goo. " +
+              "Check registered namespaces"
+          end
+          return pref
+        end
+
+        def goo_name
+          return @goop_settings[:model].to_s.underscore.to_sym
+        end
 
         def model(*args)
           options = args.reverse

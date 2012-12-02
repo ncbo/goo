@@ -2,6 +2,22 @@ require 'test/unit'
 
 require_relative "../lib/goo.rb"
 
+module TestInit
+  def self.configure_goo
+    if Goo.store().nil?
+      Goo.configure do |conf|
+        conf[:stores] = [ { :name => :main , :host => "localhost", :port => 8080 , :options => { } } ]
+        conf[:namespaces] = {
+          :omv => "http://omv.org/ontology/",
+          :goo => "http://goo.org/default/",
+          :metadata => "http://goo.org/metadata/",
+          :foaf => "http://xmlns.com/foaf/0.1/",
+          :default => :goo,
+        }
+      end
+    end
+  end
+end
 
 class TestCase < Test::Unit::TestCase
   def no_triples_for_subject(resource_id)
@@ -24,19 +40,5 @@ class TestCase < Test::Unit::TestCase
 
   def initialize(*args)
     super(*args)
-    if Goo.store().nil?
-      Goo.configure do |conf|
-        conf[:stores] = [ { :name => :main , :host => "localhost", :port => 8080 , :options => { } } ]
-        conf[:namespaces] = {
-          :omv => "http://omv.org/ontology/",
-          :goo => "http://goo.org/default/",
-          :foaf => "http://xmlns.com/foaf/0.1/",
-          :default => :goo,
-        }
-      end
-      epr = Goo.store()
-      #just testing that sparql_http is integrated
-      assert_instance_of SparqlRd::Store::HttpStore::Client, epr
-    end
   end
 end
