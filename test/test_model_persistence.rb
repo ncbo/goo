@@ -13,7 +13,7 @@ end
 
 class PersonPersist < Goo::Base::Resource
   model :person
-  attribute :name, :unique
+  attribute :name, :unique => true
   attribute :multiple_vals, :cardinality => { :maximum => 2 }
   attribute :birth_date, :date_time_xsd => true, :cardinality => { :max => 1, :min => 1  }
 
