@@ -81,7 +81,7 @@ module Goo
         end
 
         def type_uri
-          return prefix + goop_settings[:model].to_s
+          return prefix + goop_settings[:model].to_s.camelize
         end
 
         def prefix
@@ -90,6 +90,9 @@ module Goo
           if pref.nil?
             raise ArgumentError, "Namespace `#{ns}` not configured in Goo. " +
               "Check registered namespaces"
+          end
+          if pref.kind_of? Symbol
+            return Goo.namespaces[pref]
           end
           return pref
         end

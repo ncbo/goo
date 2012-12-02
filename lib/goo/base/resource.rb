@@ -241,7 +241,6 @@ module Goo
       end
 
       def save()
-        internals.save?
         return if not self.modified?
         if not valid?
             exc = NotValidException.new("Object is not valid. It cannot be saved. Check errors.")

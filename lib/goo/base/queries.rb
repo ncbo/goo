@@ -43,6 +43,7 @@ eos
       attributes = Hash.new()
       rs.each_solution do |sol|
         pvalue = sol.get(:predicate).value
+        binding.pry 
         attr_name = vocabs.attr_for_predicate_uri(pvalue, model_class) 
         if attr_name == :rdf_type
           next
@@ -73,8 +74,7 @@ eos
 
     def self.model_to_triples(model,resource_id, expand_bnodes = false)
       expand_bnodes = (expand_bnodes and (model.loaded? or not model.persistent?))
-      vocabs = Goo::Naming.get_vocabularies
-      model_uri = vocabs.uri_for_type(model.class)
+      model_uri = model.class.type_uri
       if resource_id.iri? or (not expand_bnodes) or (not model.uuid.nil?)
         triples = [ "#{resource_id.to_turtle} <#{RDF.TYPE_IRI}> <#{model_uri}>" ]
       else
@@ -84,6 +84,7 @@ eos
       model.attributes.each_pair do |name,value|
         next if name == :internals
         subject = resource_id
+        binding.pry
         predicate = vocabs.uri_for_predicate(name)
         values = (value.kind_of? Array and value or [value])
         values.each do |single_value|

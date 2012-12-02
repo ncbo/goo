@@ -7,5 +7,8 @@ class String
     tr("-", "_").
     downcase
   end
+  def camelize
+    self.split('_').map {|w| w.capitalize}.join
+  end
 end
 
