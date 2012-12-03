@@ -1,9 +1,11 @@
 require_relative 'test_case'
 
+TestInit.configure_goo
+
 class Named < Goo::Base::Resource
   model :named
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
-  validates :hasUnnammed, :instance_of => { :with => :unnamed } 
+  attribute :name, :cardinality => { :max => 1, :min => 1 }
+  attribute :has_unnammed, :instance_of => { :with => :unnamed } 
 
   unique :name
 
@@ -14,7 +16,7 @@ end
 
 class Unnamed < Goo::Base::Resource
   model :unnamed
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
+  attribute :name,  :cardinality => { :max => 1, :min => 1 }
 
   def initialize(attributes = {})
     super(attributes)
@@ -25,14 +27,6 @@ class TestModelUnnamed < TestCase
 
   def initialize(*args)
     super(*args)
-    voc = Goo::Naming.get_vocabularies
-    if not voc.is_type_registered? :unnamed
-      voc.register_model(:foaf, :unnamed, Unnamed)
-      voc.register_model(:foaf, :named, Named)
-    else
-      raise StandarError, "Error conf unit test" if :unnamed != voc.get_model_registry(Unnamed)[:type]
-      raise StandarError, "Error conf unit test" if :named != voc.get_model_registry(Named)[:type]
-    end
   end
 
   def test_unnamed_save
