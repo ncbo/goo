@@ -26,15 +26,7 @@ module Goo
 
     class TypeIdGraphPolicy
       def self.get_graph_id(model_class)
-        vocabs = Goo::Naming.get_vocabularies 
-        reg = vocabs.get_model_registry(model_class)
-        prefix = vocabs.get_prefix reg[:prefix] 
-        if reg[:prefix] == :default
-          graph_id = prefix + model_class.to_s.camelize 
-        else
-          graph_id = prefix + reg[:type].to_s.camelize
-        end
-        return graph_id
+        return model_class.type_uri
       end
     end
   end

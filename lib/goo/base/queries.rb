@@ -44,7 +44,7 @@ eos
       rs.each_solution do |sol|
         pvalue = sol.get(:predicate).value
         binding.pry 
-        attr_name = vocabs.attr_for_predicate_uri(pvalue, model_class) 
+        attr_name = model_class.attr_for_predicate_uri(pvalue, model_class) 
         if attr_name == :rdf_type
           next
         end
@@ -84,8 +84,7 @@ eos
       model.attributes.each_pair do |name,value|
         next if name == :internals
         subject = resource_id
-        binding.pry
-        predicate = vocabs.uri_for_predicate(name)
+        predicate = model.class.uri_for_predicate(name)
         values = (value.kind_of? Array and value or [value])
         values.each do |single_value|
           if single_value.kind_of? Array
@@ -196,7 +195,7 @@ eos
     end
     def self.reachable_objects_from_recursive(resource_id, objects, store_name)
       epr = Goo.store(store_name)
-      models = Goo::Base::Settings.models
+      models = Goo.models
       q = <<eos
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT DISTINCT ?o WHERE { 
@@ -232,7 +231,7 @@ eos
     end
   
     def self.get_resource_id_by_uuid(uuid, model_class, store_name)
-      uuid_predicate = Goo::Naming.get_vocabularies.uri_for_predicate(:uuid)
+      uuid_predicate = model_class.uri_for_predicate(:uuid)
       q = <<eos
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 SELECT ?res WHERE {
@@ -247,13 +246,12 @@ eos
       return nil  
     end
   
-    def self.hash_to_triples_for_query(hash)
-      vocabs = Goo::Naming.get_vocabularies
+    def self.hash_to_triples_for_query(model,hash)
       patterns = []
       hash.each do |attr,v|
-        predicate = vocabs.uri_for_predicate(attr)
+        predicate = model.class.uri_for_predicate(attr)
         [v].flatten.each do |value|
-          predicate = vocabs.uri_for_predicate(attr)
+          predicate = model.class.uri_for_predicate(attr)
           if value.kind_of? Goo::Base::Resource
             rdf_object_string = value.resource_id.to_turtle 
           elsif value.kind_of? Hash

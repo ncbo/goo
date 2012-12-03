@@ -84,17 +84,38 @@ module Goo
           return prefix + goop_settings[:model].to_s.camelize
         end
 
-        def prefix
-          ns = self.goop_settings[:namespace]
-          pref = Goo.namespaces[ns]
+        def attr_for_predicate_uri()
+        end
+
+        def uri_for_predicate(att)
+          if att == :uuid
+            return (namespace :default) + "uuid"
+          end
+          att = att.to_s
+          if not goop_settings[:attributes].include? att
+            return prefix + att.predicate
+          end
+          if not goop_settings[:attributes][att].include? :namespace
+            return prefix + att.predicate
+          end
+          return namespace( goop_settings[:attributes][att] ) + att.predicate
+        end
+
+        def namespace(symb)
+          pref = Goo.namespaces[symb]
           if pref.nil?
-            raise ArgumentError, "Namespace `#{ns}` not configured in Goo. " +
+            raise ArgumentError, "Namespace `#{symb}` not configured in Goo. " +
               "Check registered namespaces"
           end
           if pref.kind_of? Symbol
             return Goo.namespaces[pref]
           end
           return pref
+        end
+
+        def prefix
+          ns = self.goop_settings[:namespace]
+          return namespace ns
         end
 
         def goo_name

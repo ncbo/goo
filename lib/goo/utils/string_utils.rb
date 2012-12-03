@@ -10,5 +10,9 @@ class String
   def camelize
     self.split('_').map {|w| w.capitalize}.join
   end
+  def predicate
+    ss = self.camelize
+    return ss[0].downcase + ss[1..-1]
+  end
 end
 
