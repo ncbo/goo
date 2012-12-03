@@ -245,16 +245,25 @@ eos
       return nil  
     end
   
-    def self.hash_to_triples_for_query(model,hash)
+    def self.hash_to_triples_for_query(hash,model_class)
       patterns = []
       hash.each do |attr,v|
-        predicate = model.class.uri_for_predicate(attr)
+        predicate = model_class.uri_for_predicate(attr)
         [v].flatten.each do |value|
-          predicate = model.class.uri_for_predicate(attr)
           if value.kind_of? Goo::Base::Resource
             rdf_object_string = value.resource_id.to_turtle 
           elsif value.kind_of? Hash
-            rdf_object_string =  hash_to_triples_for_query(value)
+            if model_class.attributes[attr][:validators].include? :instance_of
+              model_symbol = model_class.attributes[attr][:validators][:instance_of][:with]
+              model_att = Goo.find_model_by_name(model_symbol)
+              if model_att.nil?
+                raise ArgumentError, "Wrong configuration in instance_of makes nested search fail." +
+                                     "`#{model_symbol}` has no associated model"
+              end
+              rdf_object_string =  hash_to_triples_for_query(value,model_att)
+            else
+              raise ArgumentError, "Nested search cannot be performed due to missing instance_of"
+            end
           else
             rdf_object_string = value_to_rdf_object(value)
           end
@@ -273,7 +282,17 @@ eos
         if value.kind_of? Goo::Base::Resource
           rdf_object_string = value.resource_id.to_turtle 
         elsif value.kind_of? Hash
-          rdf_object_string =  hash_to_triples_for_query(value)
+          if model_class.attributes[attribute][:validators].include? :instance_of
+            model_symbol = model_class.attributes[attribute][:validators][:instance_of][:with]
+            model_att = Goo.find_model_by_name(model_symbol)
+            if model_att.nil?
+              raise ArgumentError, "Wrong configuration in instance_of makes nested search fail." +
+                                   "`#{model_symbol}` has no associated model"
+            end
+            rdf_object_string =  hash_to_triples_for_query(value,model_att)
+          else
+            raise ArgumentError, "Nested search cannot be performed due to missing instance_of"
+          end
         else
           rdf_object_string = value_to_rdf_object(value)
         end

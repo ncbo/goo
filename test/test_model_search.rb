@@ -1,8 +1,10 @@
 require_relative 'test_case'
 
+TestInit.configure_goo
+
 class Color < Goo::Base::Resource
   model :color
-  validates :code, :cardinality => { :maximum => 1 }
+  attribute :code, :cardinality => { :maximum => 1 }
   unique :code
 
   def initialize(attributes = {})
@@ -12,8 +14,8 @@ end
 
 class ToyFeature < Goo::Base::Resource
   model :toy_feature
-  validates :color,  :instance_of => { :with => :color }
-  validates :description, :presence => true, :cardinality => { :maximum => 1 }
+  attribute :color,  :instance_of => { :with => :color }
+  attribute :description, :cardinality => { :min => 1, :max => 1 }
 
   def initialize(attributes = {})
     super(attributes)
@@ -21,9 +23,8 @@ class ToyFeature < Goo::Base::Resource
 end
 
 class ToyPart < Goo::Base::Resource
-  model :toy_part
-  validates :feature,  :instance_of => { :with => :toy_feature }
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
+  attribute :feature,  :instance_of => { :with => :toy_feature }
+  attribute :name,  :cardinality => { :min => 1, :max => 1 }
 
   def initialize(attributes = {})
     super(attributes)
@@ -31,10 +32,8 @@ class ToyPart < Goo::Base::Resource
 end
 
 class ToyObject < Goo::Base::Resource
-  model :toy_object
-  validates :part, :instance_of => { :with => :toy_part }
-  validates :name, :presence => true, :cardinality => { :maximum => 1 }
-  unique :name
+  attribute :part, :instance_of => { :with => :toy_part }
+  attribute :name, :unique => true
 
   def initialize(attributes = {})
     super(attributes)
@@ -45,18 +44,6 @@ class TestModelSearch < TestCase
 
   def initialize(*args)
     super(*args)
-    voc = Goo::Naming.get_vocabularies
-    if not voc.is_type_registered? :toy_object
-      voc.register_model(:foaf, :toy_object , ToyObject)
-      voc.register_model(:foaf, :toy_part , ToyPart)
-      voc.register_model(:foaf, :toy_feature , ToyFeature)
-      voc.register_model(:foaf, :color , Color)
-    else
-      raise StandarError, "Error conf unit test" if :toy_object != voc.get_model_registry(ToyObject)[:type]
-      raise StandarError, "Error conf unit test" if :toy_part != voc.get_model_registry(ToyPart)[:type]
-      raise StandarError, "Error conf unit test" if :toy_feature != voc.get_model_registry(ToyFeature)[:type]
-      raise StandarError, "Error conf unit test" if :color != voc.get_model_registry(Color)[:type]
-    end
   end
   def delete_toys()
     list = ToyObject.search({})

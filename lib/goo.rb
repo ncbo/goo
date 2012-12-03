@@ -86,6 +86,12 @@ module Goo
     return nil
   end
 
+  def self.find_model_by_name(name)
+    ms = @@_models.select { |m| m.goo_name == name }
+    return ms[0] if ms.length > 0
+    return nil
+  end
+
   def self.find_prefix_for_uri(uri)
     @@_configuration[:namespaces].each_pair do |prefix,ns|
       return prefix if uri.start_with? ns
