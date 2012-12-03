@@ -90,7 +90,7 @@ module Goo
           prefix = Goo.find_prefix_for_uri(uri)
           return nil unless prefix
           fragment = uri[(namespace prefix).length .. -1]
-          return fragment.to_sym
+          return fragment.underscore.to_sym
         end
 
         def uri_for_predicate(att)
@@ -162,6 +162,11 @@ module Goo
                     Settings.set_validator_options(self,attr_name,:cardinality,
                                                    Settings.cardinality_shortcuts[opt_name])
                     if opt_name == :unique
+                      if goop_settings[:unique][:generator] == :anonymous 
+                        goop_settings[:unique][:generator] = :concat_and_encode 
+                        goop_settings[:unique][:fields] = []
+                      end
+                      goop_settings[:unique][:fields] << attr_name
                       Settings.set_validator_options(self,attr_name,:unique,sub_options)
                     end
                   else

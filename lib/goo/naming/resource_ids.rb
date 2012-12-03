@@ -37,12 +37,7 @@ module Goo
           name << field_value
         end
         uri_last_fragment = URI.encode(name.join "+")
-        binding.pry 
-        vocabs = Goo::Naming.get_vocabularies 
-        reg = vocabs.get_model_registry(model.class)
-        prefix = vocabs.get_prefix reg[:prefix] 
-        type = reg[:type].to_s.camelize.downcase
-        return RDF::IRI.new(prefix + type + "/" + uri_last_fragment)
+        return RDF::IRI.new(model.class.prefix + uri_last_fragment)
       end
     end
 

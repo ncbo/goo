@@ -4,7 +4,7 @@ TestInit.configure_goo
 
 class StatusPersist < Goo::Base::Resource
   model :status
-  attribute :description, :unique
+  attribute :description, :unique => true
 
   def initialize(attributes = {})
     super(attributes)
@@ -110,18 +110,19 @@ class TestModelPersonPersistB < TestCase
     person.save
     person_update = PersonPersist.new()
     person_update.load(person.resource_id)
-    person_update.someDate =  DateTime.parse("2013-01-01T07:00:00.000Z")
+    person_update.some_date =  DateTime.parse("2013-01-01T07:00:00.000Z")
+    assert_equal true, person_update.valid?
     person_update.save
     #reload
     person_update = PersonPersist.new()
     person_update.load(person.resource_id)
-    assert_equal [DateTime.parse("2013-01-01T07:00:00.000Z")], person_update.someDate
+    assert_equal [DateTime.parse("2013-01-01T07:00:00.000Z")], person_update.some_date
     #equivalent to remove
-    person_update.someDate = []
+    person_update.some_date = []
     person_update.save
     person_update = PersonPersist.new()
     person_update.load(person.resource_id)
-    assert_equal nil, person_update.someDate
+    assert_equal nil, person_update.some_date
     person_update.delete
     assert_equal false, person_update.exist?(reload=true)
     no_triples_for_subject(person_update.resource_id)

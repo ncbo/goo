@@ -255,7 +255,6 @@ module Goo
             raise exc
           end
         end
-
         modified_models = []
         modified_models << self if self.modified?
         Goo::Queries.recursively_collect_modified_models(self, modified_models)

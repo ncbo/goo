@@ -265,13 +265,11 @@ eos
     end
 
     def self.search_by_attributes(attributes, model_class, store_name)
-      vocabs = Goo::Naming.get_vocabularies
       patterns = []
-      model_uri = vocabs.uri_for_type(model_class)
       graph_id = Goo::Naming.get_graph_id(model_class)
-      patterns << " ?subject a <#{model_uri}> ."
+      patterns << " ?subject a <#{ model_class.type_uri}> ."
       attributes.each do |attribute, value|
-        predicate = vocabs.uri_for_predicate(attribute)
+        predicate = model_class.uri_for_predicate(attribute)
         if value.kind_of? Goo::Base::Resource
           rdf_object_string = value.resource_id.to_turtle 
         elsif value.kind_of? Hash
