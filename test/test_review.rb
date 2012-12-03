@@ -2,15 +2,15 @@ require_relative 'test_case'
 
 class Review < Goo::Base::Resource
       model :review
-      validates :creator, :presence => true, :cardinality => { :maximum => 1 }
-      validates :created, :date_time_xsd => true, :presence => true, :cardinality => { :maximum => 1 }
-      validates :body, :presence => true, :cardinality => { :maximum => 1 }
-      validates :ontologyReviewed, :presence => true, :cardinality => { :maximum => 1 }
-      validates :usabilityRating, :cardinality => { :maximum => 1 }
-      validates :coverageRating, :cardinality => { :maximum => 1 }
-      validates :qualityRating, :cardinality => { :maximum => 1 }
-      validates :formalityRating, :cardinality => { :maximum => 1 }
-      validates :documentationRating, :cardinality => { :maximum => 1 }
+      attribute :creator, :cardinality => { :max => 1, :min => 1 }
+      attribute :created, :date_time_xsd => true, :cardinality => { :max => 1, :min => 1 }
+      attribute :body, :cardinality => { :max => 1, :min => 1}
+      attribute :ontologyReviewed, :cardinality => { :max => 1, :min => 1 }
+      attribute :usabilityRating, :cardinality => { :max => 1 }
+      attribute :coverageRating, :cardinality => { :max => 1 }
+      attribute :qualityRating, :cardinality => { :max => 1 }
+      attribute :formalityRating, :cardinality => { :max => 1 }
+      attribute :documentationRating, :cardinality => { :max => 1 }
 
       def initialize(attributes = {})
         super(attributes)
@@ -21,26 +21,15 @@ class TestReview < Test::Unit::TestCase
 
   def initialize(*args)
     super(*args)
-    # Setup repo connection
     if Goo.store().nil?
       Goo.configure do |conf|
         conf[:stores] = [ { :name => :main , :host => "localhost", :port => 8080 , :options => { } } ]
+        conf[:namespaces] = {
+          :metadata => "http://data.bioontology.org/metadata/",
+          :default => :metadata,
+        }
       end
-    else
-      return
     end
-
-    # Setup Goo
-    vocabs = Goo::Naming::Vocabularies.new()
-
-    # Any property no defined in a prefix space
-    # will fall under this namespace
-    vocabs.default = "http://data.bioontology.org/metadata/"
-
-    vocabs.register(:metadata, "http://data.bioontology.org/metadata/", [])
-    vocabs.register_model(:metadata, :review, Review)
-
-    Goo::Naming.register_vocabularies(vocabs)
   end
 
   def test_valid_review

@@ -93,8 +93,10 @@ module Goo
           raise ArgumentError, "#{attr} has to be a non-negative integer " \
             unless not options[attr] or (options[attr].instance_of?(Fixnum) or options[attr] >= 0)
         end
-        
-        if value.kind_of?(Array)
+        if value.nil? and options[:min] and options[:min] > 0
+            record.internals.errors[attribute] << \
+            (options[:message] || "#{attribute} is nil. It does not satisfy cardinality #{options}")
+        elsif value.kind_of?(Array)
           if (options[:min]  and value.length < options[:min]) or \
               (options[:max]  and value.length > options[:max])
             record.internals.errors[attribute] << \

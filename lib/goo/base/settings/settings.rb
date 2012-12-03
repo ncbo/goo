@@ -90,7 +90,8 @@ module Goo
           prefix = Goo.find_prefix_for_uri(uri)
           return nil unless prefix
           fragment = uri[(namespace prefix).length .. -1]
-          return fragment.underscore.to_sym
+          #return fragment.underscore.to_sym
+          return fragment.to_sym
         end
 
         def uri_for_predicate(att)
@@ -99,12 +100,12 @@ module Goo
           end
           att = att.to_s
           if not goop_settings[:attributes].include? att
-            return prefix + att.predicate
+            return prefix + att
           end
           if not goop_settings[:attributes][att].include? :namespace
-            return prefix + att.predicate
+            return prefix + att
           end
-          return namespace( goop_settings[:attributes][att] ) + att.predicate
+          return namespace( goop_settings[:attributes][att] ) + att
         end
 
         def namespace(symb)

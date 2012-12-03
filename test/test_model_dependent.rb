@@ -1,9 +1,10 @@
 require_relative 'test_case'
 
+TestInit.configure_goo
 
 class Model1 < Goo::Base::Resource
   model :model1
-  validates :prop, :presence => true, :cardinality => { :maximum => 1 }
+  attribute :prop, :cardinality => { :max => 1, :min => 1 }
   unique :prop
 
   def initialize(attributes = {})
@@ -13,8 +14,7 @@ end
 
 class Model2 < Goo::Base::Resource
   model :model2
-  validates :prop, :presence => true, :cardinality => { :maximum => 1 }
-  unique :prop
+  attribute :prop, :unique => true
 
   def initialize(attributes = {})
     super(attributes)
@@ -25,14 +25,6 @@ class TestModelDependencies < TestCase
 
   def initialize(*args)
     super(*args)
-    voc = Goo::Naming.get_vocabularies
-    if not voc.is_type_registered? :model1
-      voc.register_model(:foaf, :model1 , Model1)
-      voc.register_model(:foaf, :model2 , Model2)
-    else
-      raise StandarError, "Error conf unit test" if :model1 != voc.get_model_registry(Model1)[:type]
-      raise StandarError, "Error conf unit test" if :model2 != voc.get_model_registry(Model2)[:type]
-    end
   end
 
   def test_model_deps_save
