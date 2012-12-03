@@ -30,7 +30,7 @@ eos
         model_class_uri = sol.get(:class)
       end
       return nil if model_class_uri.nil?
-      model = Goo::Base::Settings.find_model_by_uri(model_class_uri.value)
+      model = Goo.find_model_by_uri(model_class_uri.value)
       return model
     end
 
@@ -43,8 +43,7 @@ eos
       attributes = Hash.new()
       rs.each_solution do |sol|
         pvalue = sol.get(:predicate).value
-        binding.pry 
-        attr_name = model_class.attr_for_predicate_uri(pvalue, model_class) 
+        attr_name = model_class.attr_for_predicate_uri(pvalue) 
         if attr_name == :rdf_type
           next
         end

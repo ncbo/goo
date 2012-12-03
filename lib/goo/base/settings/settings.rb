@@ -84,7 +84,13 @@ module Goo
           return prefix + goop_settings[:model].to_s.camelize
         end
 
-        def attr_for_predicate_uri()
+
+        def attr_for_predicate_uri(uri)
+          return :rdf_type if RDF.rdf_type? uri
+          prefix = Goo.find_prefix_for_uri(uri)
+          return nil unless prefix
+          fragment = uri[(namespace prefix).length .. -1]
+          return fragment.to_sym
         end
 
         def uri_for_predicate(att)

@@ -244,14 +244,14 @@ module Goo
         return if not self.modified?
         if not valid?
             exc = NotValidException.new("Object is not valid. It cannot be saved. Check errors.")
-            exc.errors = linked_obj.errors
+            exc.errors = self.internals.errors
             raise exc
         end
         self.each_linked_base do |attr_name,linked_obj|
           next unless linked_obj.internals.loaded?
           if not linked_obj.valid?
             exc = NotValidException.new("Attribute '#{attr_name}' links to a non-valid object.")
-            exc.errors = linked_obj.errors
+            exc.errors = linked_obj.internals.errors
             raise exc
           end
         end
