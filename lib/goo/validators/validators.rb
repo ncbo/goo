@@ -1,6 +1,6 @@
 module Goo
   module Validators
-    
+
     class Validator
       attr_reader :options
 
@@ -18,7 +18,7 @@ module Goo
 
     end
 
-    class DateTimeXsdValidator < Validator 
+    class DateTimeXsdValidator < Validator
       def validate_each(record, attribute, value)
         begin
           #why do I need module here.
@@ -34,7 +34,7 @@ module Goo
       end
     end
 
-    class InstanceOfValidator < Validator 
+    class InstanceOfValidator < Validator
       def validate_each(record, attribute, value)
         return if value.nil? #other validators will take care of Cardinality.
         values = [value].flatten
@@ -65,6 +65,7 @@ module Goo
         if value.nil?
             record.internals.errors[attribute] << \
             (options[:message] || "#{attribute} must contain a value.")
+            return
         end
         if value.kind_of? Array and value.length > 1
             record.internals.errors[attribute] << \
@@ -84,7 +85,7 @@ module Goo
       end
     end
 
-    class CardinalityValidator < Validator 
+    class CardinalityValidator < Validator
       def validate_each(record, attribute, value)
         raise ArgumentError, "CardinalityValidator for #{attribute} needs options :max and/or :min." \
           if options.length == 0
@@ -103,13 +104,13 @@ module Goo
             (options[:message] || "#{attribute}.length = #{value.length}. It does not satisfy cardinality #{options}")
           end
         else
-          #TODO: cardinality check for non-array values. 
+          #TODO: cardinality check for non-array values.
           if options[:min] and options[:min] > 1
             record.internals.errors[attribute] << \
             (options[:message] || "#{attribute}.length = #{value.length}. It does not satisfy cardinality #{options}")
           end
         end
       end
-    end 
+    end
   end
 end

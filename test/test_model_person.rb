@@ -71,6 +71,11 @@ class TestModelPersonA < TestCase
     assert_equal false, person.valid?
     assert_instance_of String, person.errors[:birth_date][0]
   end
+  
+  def test_unique_empty
+    person = Person.new
+    assert_equal false, person.valid?
+  end
 
   def test_person_modify
     person = Person.new({:name => "Goo Fernandez", :some_stuff => [1]})
