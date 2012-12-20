@@ -90,11 +90,11 @@ class TestModelPersonPersistB < TestCase
     person.save
     person_update = PersonPersist.new()
     person_update.load(person.resource_id)
-    
+
     #default value is there
     created_time = person_update.created
     assert_instance_of DateTime, created_time
-    
+
     #update field
     person_update.birth_date =  DateTime.parse("2013-01-01T07:00:00.000Z")
 
@@ -159,7 +159,7 @@ class TestModelPersonPersistB < TestCase
     person.save
     assert_equal true, person.exist?(reload=true)
     resource_id = person.resource_id
-    
+
     #static load
     item = Goo::Base::Resource.load(resource_id)
     assert_instance_of person.class, item
@@ -171,7 +171,7 @@ class TestModelPersonPersistB < TestCase
     item = Goo::Base::Resource.load(resource_id)
     assert_equal nil, item
   end
- 
+
   def test_person_dependent_persisted
     statuses = {}
     ["single","married","divorced"].each do |st|
@@ -206,7 +206,7 @@ class TestModelPersonPersistB < TestCase
       t.delete
       assert_equal 0, count_pattern("#{rid.to_turtle} a ?type .")
     end
-  end 
+  end
 
   def test_model_by_def_name
     cls = Goo.find_model_by_name(:person_persist)
@@ -214,7 +214,7 @@ class TestModelPersonPersistB < TestCase
     cls = Goo.find_model_by_name(:status)
     assert (cls == StatusPersist)
   end
-  
+
   def test_instance_of_with_model_definitions
     person = PersonPersist.new({:name => "Goo Fernandez",
                          :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"),

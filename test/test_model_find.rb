@@ -65,7 +65,7 @@ class TestModelwhere < TestCase
       c.load
       c.delete
     end
-  end 
+  end
 
   def create_toy_parts()
 
@@ -87,7 +87,7 @@ class TestModelwhere < TestCase
     assert_equal 3, list.length
     list = Color.all
     assert_equal 3, list.length
-  end 
+  end
 
   def create_toys(max)
     delete_toys()
@@ -112,7 +112,7 @@ class TestModelwhere < TestCase
         engine_blue = ToyFeature.where(:color => { :code => "blue"})[0]
         engine_blue.load
         #the only blue thing is an engine
-        assert_equal "engine", engine_blue.description 
+        assert_equal "engine", engine_blue.description
 
         toy_part = ToyPart.new({:name => "toypart#{n}", :feature => [engine_blue] })
         toy.part = toy_part
@@ -172,10 +172,10 @@ class TestModelwhere < TestCase
     blues = Color.where(:code => "blue")
     assert_equal 1, blues.length
     blue = blues[0]
-    list = ToyObject.where(:part => { :feature => { :color => blue }}) 
+    list = ToyObject.where(:part => { :feature => { :color => blue }})
     assert_equal 3, list.length
     list = ToyObject.where( :part => {
-                            :feature => { :color => blue  }}, 
+                            :feature => { :color => blue  }},
                             :all_prop => "common" )
     assert_equal 3, list.length
     list.each do |x|

@@ -70,7 +70,7 @@ class TestModelOntology < TestCase
       p2 = Project.new({
           :name => "Not So Great",
           :ontologyUsed => [ont]
-      }) 
+      })
       p2.save
       assert_equal true, p2.exist?(reload=true)
       projects = ont.projects
@@ -81,7 +81,7 @@ class TestModelOntology < TestCase
         p.load
         assert_instance_of String, p.name
       end
-      
+
       ont_search = Ontology.where(:projects => p)
       assert_instance_of Array, ont_search
       assert_equal 1, ont_search.length

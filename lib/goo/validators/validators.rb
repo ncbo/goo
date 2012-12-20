@@ -65,7 +65,7 @@ module Goo
 
     class UniqueValidator < Validator
       def validate_each(record, attribute, value)
-        if value.nil? or (value.kind_of? Array and value.length > 1) or 
+        if value.nil? or (value.kind_of? Array and value.length > 1) or
           (value.kind_of? Array and value.length == 0)
             #cardinality takes care of this.
             return

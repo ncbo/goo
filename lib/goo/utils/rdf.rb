@@ -17,11 +17,11 @@ module RDF
     "rdf"
   end
 
-  def self.TYPE_IRI 
+  def self.TYPE_IRI
     "%s%s" % [self.NS,self.TYPE_FRAGMENT]
   end
 
-  def self.TYPE_QNAME 
+  def self.TYPE_QNAME
     "%s:%s" % [self.PREFIX,self.TYPE_FRAGMENT]
   end
 

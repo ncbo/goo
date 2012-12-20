@@ -10,7 +10,7 @@ require_relative "goo/base/base"
 require_relative "goo/naming/naming"
 require_relative "goo/utils/utils"
 
-module Goo 
+module Goo
 
   @@_configuration = {}
   @@_models = Set.new
@@ -18,7 +18,7 @@ module Goo
   @@_uuid_generator = nil
   @@_support_skolem = false
   @@_validators = {}
-  
+
   def self.models
     @@_models
   end

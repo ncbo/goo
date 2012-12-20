@@ -5,7 +5,7 @@ TestInit.configure_goo
 class Named < Goo::Base::Resource
   model :named
   attribute :name, :cardinality => { :max => 1, :min => 1 }
-  attribute :has_unnammed, :instance_of => { :with => :unnamed } 
+  attribute :has_unnammed, :instance_of => { :with => :unnamed }
 
   unique :name
 

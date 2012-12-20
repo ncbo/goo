@@ -8,14 +8,14 @@ module Goo
       attr_reader :loaded_dependencies
       attr_reader :store_name
       attr_accessor :errors
-      
-      alias :modified? :modified 
+
+      alias :modified? :modified
 
       def initialize(base_instance)
         @_base_instance = base_instance
         @_id = nil
       end
-   
+
       def new_resource(store_name = nil)
         @persistent = false
         @loaded = false
@@ -27,14 +27,14 @@ module Goo
       def id=(resource_id)
         if not lazy_loaded?
           #this cannot evaluated in lazy loading since now props are loaded
-          return if (@_base_instance.resource_id and 
+          return if (@_base_instance.resource_id and
                       (@_base_instance.resource_id.value == resource_id.value))
         end
 
         if @persistent and not lazy_loaded?
-          if not (@_base_instance.resource_id.bnode? and 
+          if not (@_base_instance.resource_id.bnode? and
                   not @_base_instance.resource_id.skolem?)
-            raise StatusException, 
+            raise StatusException,
                   "Cannot set up resource_ID #{resource_id} in a persistent obj."
           end
         end
@@ -47,14 +47,14 @@ module Goo
         end
         @loaded_dependencies = false
       end
-      
+
       def id(auto_load=true)
         if auto_load and @_id.nil?
           @_id = Goo::Naming.getResourceId(@_base_instance)
         end
-        return @_id 
+        return @_id
       end
-      
+
       def load?
         if (@persistent and not lazy_loaded?) or @modified
           raise StatusException, "Resource cannot be loaded if object contains attributes."
@@ -79,7 +79,7 @@ module Goo
         @modified= false
         @loaded = true
       end
-    
+
       def delete?
         if @modified
           raise StatusException, "Modified objects cannot be deleted"
@@ -100,11 +100,11 @@ module Goo
       def loaded?
         @loaded
       end
-      
+
       def persistent?
         @persistent
       end
-      
+
       def lazy_loaded?
         return (@persistent and not @loaded)
       end
@@ -115,4 +115,4 @@ module Goo
       end
     end
   end
-end 
+end

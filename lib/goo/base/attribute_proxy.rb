@@ -16,7 +16,7 @@ module Goo
           return value
         end
         if value.kind_of? Array
-          if @validator.options[:max] and value.length > @validator.options[:max] 
+          if @validator.options[:max] and value.length > @validator.options[:max]
             raise ArgumentError, "Attribute '#{attr}' does not satisfy max cardinality."
           end
           if @validator.options[:min] and value.length < @validator.options[:min]
@@ -37,7 +37,7 @@ module Goo
           end
         end
         if not value.kind_of? Array and current_value.kind_of? Array
-          raise ArgumentError, 
+          raise ArgumentError,
                   "Multiple value objects cannot be replaced for non-array objects"
         end
         if value.kind_of? Array then value else [value] end

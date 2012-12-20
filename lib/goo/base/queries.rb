@@ -16,7 +16,7 @@ module Goo
       return "\"\"\"#{value}\"\"\"^^<#{xsd_type_string}>"
 
     end
-    
+
     def self.get_resource_class(id, store_name)
       resource_id = if id.kind_of? String then id else id.value end
       epr = Goo.store(store_name)
@@ -43,7 +43,7 @@ eos
       attributes = Hash.new()
       rs.each_solution do |sol|
         pvalue = sol.get(:predicate).value
-        attr_name = model_class.attr_for_predicate_uri(pvalue) 
+        attr_name = model_class.attr_for_predicate_uri(pvalue)
         if attr_name == :rdf_type
           next
         end
@@ -100,15 +100,15 @@ eos
             else
               object = object_iri.to_turtle
             end
-          elsif single_value.kind_of? SparqlRd::Resultset::Node 
+          elsif single_value.kind_of? SparqlRd::Resultset::Node
             object = single_value.to_turtle
           else
-            object = value_to_rdf_object(single_value) 
+            object = value_to_rdf_object(single_value)
           end
           if resource_id.iri? or (not expand_bnodes) or (not model.uuid.nil?)
-            triples << "#{subject.to_turtle} <#{predicate}> #{object}" 
+            triples << "#{subject.to_turtle} <#{predicate}> #{object}"
           else
-            triples << " <#{predicate}> #{object}" 
+            triples << " <#{predicate}> #{object}"
           end
         end
       end
@@ -124,7 +124,7 @@ eos
         end
         model_values
     end
-    
+
     def self.recursively_collect_modified_models(model, models)
       model.attributes.each_pair do |name,value|
         (value_as_array value).each do |single_value|
@@ -151,7 +151,7 @@ eos
             graph_id = graph_id_master
           else
             graph_id = Goo::Naming.get_graph_id(model.class)
-          end 
+          end
           query = ["DELETE DATA { GRAPH <#{graph_id}> {"]
           triples.map! { |t| t + ' .' }
           query << triples
@@ -179,7 +179,7 @@ eos
       end
       return queries
     end
-    
+
     def self.count_backlinks(resource_id, store_name)
       epr = Goo.store(store_name)
       q = <<eos
@@ -198,7 +198,7 @@ eos
       models = Goo.models
       q = <<eos
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-SELECT DISTINCT ?o WHERE { 
+SELECT DISTINCT ?o WHERE {
   #{resource_id.to_turtle} ?p ?o .
   FILTER (!isLiteral(?o) && ?p != rdf:type) }
 eos
@@ -211,15 +211,15 @@ eos
       end
     end
 
-    def self.reachable_objects_from(resource_id, store_name, 
+    def self.reachable_objects_from(resource_id, store_name,
                                     count_backlinks=false)
-      reached_objects = Set.new 
+      reached_objects = Set.new
       reachable_objects_from_recursive(resource_id, reached_objects, store_name)
       filled_reached_objects = []
-      reached_objects.each do |object| 
+      reached_objects.each do |object|
         model_class = get_resource_class(object,store_name)
-        if not model_class.nil? 
-          reached = { :id => object, 
+        if not model_class.nil?
+          reached = { :id => object,
                       :model_class => model_class}
           if count_backlinks
             reached[:backlink_count] = self.count_backlinks(object,store_name)
@@ -229,7 +229,7 @@ eos
       end
       return filled_reached_objects
     end
-  
+
     def self.get_resource_id_by_uuid(uuid, model_class, store_name)
       uuid_predicate = model_class.uri_for_predicate(:uuid)
       q = <<eos
@@ -243,16 +243,16 @@ eos
       res.each_solution do |sol|
         return sol.get(:res)
       end
-      return nil  
+      return nil
     end
-  
+
     def self.hash_to_triples_for_query(hash,model_class)
       patterns = []
       hash.each do |attr,v|
         predicate = model_class.uri_for_predicate(attr)
         [v].flatten.each do |value|
           if value.kind_of? Goo::Base::Resource
-            rdf_object_string = value.resource_id.to_turtle 
+            rdf_object_string = value.resource_id.to_turtle
           elsif value.kind_of? Hash
             if model_class.attributes[attr][:validators].include? :instance_of
               model_symbol = model_class.attributes[attr][:validators][:instance_of][:with]
@@ -271,7 +271,7 @@ eos
           patterns << " <#{predicate}> #{rdf_object_string};"
         end
       end
-      return "[\n\t" + (patterns.join "\n") + " \n]" 
+      return "[\n\t" + (patterns.join "\n") + " \n]"
     end
 
     def self.search_by_attributes(attributes, model_class, store_name, ignore_inverse)
@@ -290,7 +290,7 @@ eos
           predicate = model_class.uri_for_predicate(attribute)
         end
         if value.kind_of? Goo::Base::Resource
-          rdf_object_string = value.resource_id.to_turtle 
+          rdf_object_string = value.resource_id.to_turtle
         elsif value.kind_of? Hash
           if model_class.attributes[attribute][:validators].include? :instance_of
             model_symbol = model_class.attributes[attribute][:validators][:instance_of][:with]

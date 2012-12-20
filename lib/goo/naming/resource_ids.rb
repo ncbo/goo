@@ -10,7 +10,7 @@ module Goo
       #      good enough for now
       if policy == :concat_and_encode
         resource_id = UniqueFieldsConcatPolicy.getResourceId(model)
-        raise InvalidResourceId, 
+        raise InvalidResourceId,
             "#{resource_id} does not parse as URI. Check the resource_id generator." \
           unless SparqlRd::Utils::Http.valid_uri? resource_id.value
         return resource_id

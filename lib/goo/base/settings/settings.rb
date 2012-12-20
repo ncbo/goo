@@ -2,7 +2,7 @@
 module Goo
   module Base
     module Settings
-      
+
       @@_cardinality_shortcuts = {
         :single_value => { :max => 1 },
         :optional => { :min => 0 },
@@ -85,7 +85,7 @@ module Goo
           end
           return {}
         end
-        
+
         def attributes(*args)
           return self.goop_settings[:attributes].clone
         end
@@ -143,7 +143,7 @@ module Goo
           options = args.reverse
           if options.length == 0 or (not options[-1].kind_of? Symbol)
             type = self.to_s.to_sym
-          else 
+          else
             type = options.pop
           end
           if instance_variables.index(:@goop_settings) == nil
@@ -160,7 +160,7 @@ module Goo
             @goop_settings.merge!(opt)
           end
         end
-        
+
         def attribute(*args)
           options = args.reverse
           attr_name = options.pop
@@ -182,8 +182,8 @@ module Goo
                     Settings.set_validator_options(self,attr_name,:cardinality,
                                                    Settings.cardinality_shortcuts[opt_name])
                     if opt_name == :unique
-                      if goop_settings[:unique][:generator] == :anonymous 
-                        goop_settings[:unique][:generator] = :concat_and_encode 
+                      if goop_settings[:unique][:generator] == :anonymous
+                        goop_settings[:unique][:generator] = :concat_and_encode
                         goop_settings[:unique][:fields] = []
                       end
                       goop_settings[:unique][:fields] << attr_name
@@ -238,7 +238,7 @@ module Goo
 
         def inverse_attr?(attr)
           attr = attr.to_sym
-          return ((goop_settings[:attributes].include? attr) and 
+          return ((goop_settings[:attributes].include? attr) and
                   (goop_settings[:attributes][attr].include? :inverse_of))
         end
 

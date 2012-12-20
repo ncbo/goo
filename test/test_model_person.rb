@@ -2,7 +2,7 @@ require_relative 'test_case'
 
 TestInit.configure_goo
 
-class CustomValidator < Goo::Validators::Validator 
+class CustomValidator < Goo::Validators::Validator
   def validate_each(record, attribute, value)
     return if value.nil? #other validators will take care of Cardinality.
     values = value
@@ -50,17 +50,17 @@ class TestModelPersonA < TestCase
     assert_instance_of Hash, person.class.goop_settings
     assert_equal :PersonResource, person.class.goop_settings[:model]
     assert_equal "Goo Fernandez", person.name
-    assert_equal [1], person.some_stuff 
+    assert_equal [1], person.some_stuff
     assert_equal DateTime.parse("2012-10-04T07:00:00.000Z"), person.birth_date
     assert_equal true, person.valid?
   end
-  
+
   def test_cardinality
     person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"), :some_stuff => [1]})
-    person.multiple_vals= 1 
-    person.multiple_vals << 2 
+    person.multiple_vals= 1
+    person.multiple_vals << 2
     assert_equal true, person.valid?
-    person.multiple_vals << 3 
+    person.multiple_vals << 3
     assert_equal [1,2,3], person.multiple_vals
     assert_equal false, person.valid?
     assert_instance_of String, person.errors[:multiple_vals][0]
@@ -71,7 +71,7 @@ class TestModelPersonA < TestCase
     assert_equal false, person.valid?
     assert_instance_of String, person.errors[:birth_date][0]
   end
-  
+
   def test_unique_empty
     person = Person.new
     assert_equal false, person.valid?
@@ -81,11 +81,11 @@ class TestModelPersonA < TestCase
     person = Person.new({:name => "Goo Fernandez", :some_stuff => [1]})
     person.name= "changed named"
     assert_equal "changed named", person.name
-    begin 
+    begin
       #cardinality error
       person.name= ["a","b"]
       #unreachable
-      assert_equal 1, 0 
+      assert_equal 1, 0
     rescue => e
       assert_instance_of ArgumentError, e
     end
@@ -94,14 +94,14 @@ class TestModelPersonA < TestCase
     person.some_stuff << 123
     assert_equal [2, 123], person.some_stuff
     person.some_stuff= []
-    assert_equal [], person.some_stuff 
+    assert_equal [], person.some_stuff
   end
 
   def test_person_multiple_unique_error
     begin
       person = Person.new({:name => ["Goo Fernandez", "Value2]"] })
     rescue => e
-      assert_instance_of ArgumentError, e 
+      assert_instance_of ArgumentError, e
     end
   end
 
@@ -109,7 +109,7 @@ class TestModelPersonA < TestCase
     begin
       person = Person.new({:name => "Unique", :some => 1 })
     rescue => e
-      assert_instance_of ArgumentError, e 
+      assert_instance_of ArgumentError, e
     end
   end
 
@@ -120,16 +120,16 @@ class TestModelPersonA < TestCase
     assert_equal 2, person.errors[:contact_data].length
     contact1 = ContactData.new({ :email => ["a@s.com"], :type => ["email"] })
     contact2 = ContactData.new({ :phone => ["123-123-22-22"], :type => ["phone"] })
-    person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"), 
+    person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z"),
                          :contact_data => [contact1, contact2] })
-    person = Person.new({:name => "Goo Fernandez", 
+    person = Person.new({:name => "Goo Fernandez",
                          :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z") })
     person.contact_data = [contact1]
-    assert_equal true, person.valid? 
+    assert_equal true, person.valid?
     person.contact_data << contact2
-    assert_equal true, person.valid? 
+    assert_equal true, person.valid?
     person.contact_data << 10
-    assert_equal false, person.valid? 
+    assert_equal false, person.valid?
     assert_equal 1, person.errors[:contact_data].length
   end
 
@@ -137,7 +137,7 @@ class TestModelPersonA < TestCase
     person = Person.new({:name => "Goo Fernandez", :birth_date => DateTime.parse("2012-10-04T07:00:00.000Z") })
     person.custom_values= [ 1, 2, 3]
     assert_equal true, person.valid?
-    person.custom_values << 100000 
+    person.custom_values << 100000
     assert_equal false, person.valid?
     assert_equal 1, person.errors[:custom_values].length
   end
@@ -156,7 +156,7 @@ class TestModelPersonA < TestCase
   def test_range_class_of_attribute
     cls = Person.range_class(:contact_data)
     assert(cls.kind_of? Class)
-    assert_equal cls, ContactData 
+    assert_equal cls, ContactData
 
     cls = Person.range_class(:non_attr)
     assert cls.nil?
