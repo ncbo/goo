@@ -9,8 +9,8 @@ module Goo
 
       attr_reader :attributes
       attr_reader :errors
-      
-      def initialize(attributes = {}) 
+
+      def initialize(attributes = {})
         model = self.class.goop_settings[:model]
         raise ArgumentError, "Can't create model, model settings do not contain model type." \
           unless model != nil
@@ -37,12 +37,12 @@ module Goo
       def self.inherited(subclass)
         #hook to set up default configuration.
         subclass.model
-      end 
+      end
 
       def contains_data?
         ((@attributes.has_key? :internals) and @attributes.length > 1) or
           ((not @attributes.has_key? :internals) and @attributes.length > 0)
-      end 
+      end
 
       def internals()
         @attributes[:internals]
@@ -64,15 +64,15 @@ module Goo
           end
           current_value = @table[attr]
           value = args.flatten
-          tvalue = prx.call({ :value => value, :attr => attr, 
+          tvalue = prx.call({ :value => value, :attr => attr,
                               :current_value => current_value })
           if attr == :uuid
             #uuid forced to be unique
-            tvalue = tvalue[0] 
+            tvalue = tvalue[0]
           end
           if internals.persistent?
             if not internals.lazy_loaded? and
-               self.class.goop_settings[:unique] and 
+               self.class.goop_settings[:unique] and
                self.class.goop_settings[:unique][:fields] and
                self.class.goop_settings[:unique][:fields].include? attr and
                @table[attr] != tvalue
@@ -86,11 +86,11 @@ module Goo
         end
         define_singleton_method("#{attr}") do |*args|
           attr_value = @table[attr]
-         
+
           if self.class.inverse_attr? attr
             inv_cls, inv_attr = self.class.inverse_attr_options(attr)
             return inv_cls.where(inv_attr => self, ignore_inverse: true)
-          end 
+          end
 
           #returning default value
           if attr_value.nil?
@@ -106,12 +106,12 @@ module Goo
 
           return attr_value
         end
-      end 
+      end
 
       def shape_me
         if @attributes.length > 1 #size 1 is internals
           check_rdftype_inconsistency
-          
+
           #set to nil all the known properties via validators
           keys_attr = @attributes.keys
           self.class.attributes.each do |att_name, options|
@@ -128,11 +128,11 @@ module Goo
             self.send("#{attr}=", value)
           end
         end
-        internal_status = @attributes[:internals] 
+        internal_status = @attributes[:internals]
         @table[:internals] = internal_status
         @attributes = @table
       end
-    
+
       def method_missing(sym, *args, &block)
         if sym.to_s[-1] == "="
           shape_attribute(sym.to_s.chomp "=")
@@ -141,7 +141,7 @@ module Goo
         return nil
         #raise NoMethodError, "undefined method `#{sym}'"
       end
-      
+
       #set resource id wihout loading the rest of the attributes.
       def resource_id=(resource_id)
         internals.id=resource_id
@@ -179,7 +179,7 @@ module Goo
 
       def each_linked_base
         raise ArgumentError, "No block given" unless block_given?
-        @attributes.each do |key,values| 
+        @attributes.each do |key,values|
           mult_values = if values.kind_of? Array then values else [values] end
           mult_values.each do |object|
             if object.kind_of? Resource
@@ -188,7 +188,7 @@ module Goo
           end
         end
       end
-      
+
       def lazy_loaded
         internals.lazy_loaded
       end
@@ -211,11 +211,11 @@ module Goo
           raise ArgumentError, "ResourceID '#{resource_id}' does not exist"
         end
         if model_class != self.class
-          raise ArgumentError, 
+          raise ArgumentError,
               "ResourceID '#{resource_id}' is an instance of type #{model_class} in the store"
         end
 
-        store_attributes = Goo::Queries.get_resource_attributes(resource_id, self.class, 
+        store_attributes = Goo::Queries.get_resource_attributes(resource_id, self.class,
                                                            internals.store_name)
         internal_status = @attributes[:internals]
         @attributes = store_attributes
@@ -254,7 +254,7 @@ module Goo
         return false if queries.length.nil? or queries.length == 0
         epr = Goo.store(@store_name)
         queries.each do |query|
-          epr.update(query) 
+          epr.update(query)
         end
 
         internals.deleted
@@ -296,7 +296,7 @@ module Goo
           return false if queries.length.nil? or queries.length == 0
           epr = Goo.store(@store_name)
           queries.each do |query|
-            epr.update(query) 
+            epr.update(query)
           end
         end
 
@@ -328,7 +328,7 @@ module Goo
         end
         return false
       end
-      
+
       def self.all()
         return self.where({})
       end

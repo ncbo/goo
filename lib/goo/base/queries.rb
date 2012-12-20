@@ -89,6 +89,7 @@ eos
         predicate = model.class.uri_for_predicate(name)
         values = (value.kind_of? Array and value or [value])
         values.each do |single_value|
+          next if single_value.nil?
           if single_value.kind_of? Goo::Base::Resource
             object_iri = single_value.resource_id
             if object_iri.bnode? and expand_bnodes and
@@ -278,6 +279,7 @@ eos
       graph_id = Goo::Naming.get_graph_id(model_class)
       patterns << " ?subject a <#{ model_class.type_uri}> ."
       attributes.each do |attribute, value|
+        next if value.nil?
         predicate = nil
         inverse = false
         if not ignore_inverse and model_class.inverse_attr? attribute
