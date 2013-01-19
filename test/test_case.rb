@@ -1,3 +1,14 @@
+# Start simplecov if this is a coverage task
+if ENV["COVERAGE"].eql?("true")
+  require 'simplecov'
+  SimpleCov.start do
+    add_filter "/test/"
+    add_filter "app.rb"
+    add_filter "init.rb"
+    add_filter "/config/"
+  end
+end
+
 require 'test/unit'
 
 require_relative "../lib/goo.rb"

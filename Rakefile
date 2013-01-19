@@ -40,3 +40,11 @@ Rake::TestTask.new do |t|
   t.name = "test:find"
   t.test_files = FileList['test/test_model_find.rb']
 end
+
+desc "Run test coverage analysis"
+task :coverage do
+  puts "Code coverage reports will be visible in the /coverage folder"
+  ENV["COVERAGE"] = "true"
+  Rake::Task["test"].invoke
+end
+
