@@ -1,3 +1,4 @@
+require 'cgi'
 
 module Goo
   module Naming
@@ -43,7 +44,7 @@ module Goo
         if field_value.kind_of? Array
           field_value = field_value[0]
         end
-        uri_last_fragment = URI.encode(field_value)
+        uri_last_fragment = CGI.escape(field_value)
         return RDF::IRI.new(model.class.prefix + model.class.goo_name.to_s + '/' + uri_last_fragment)
        end
     end
