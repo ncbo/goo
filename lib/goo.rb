@@ -37,8 +37,6 @@ module Goo
            conf[:namespaces].has_key? conf[:namespaces][:default]
       raise ArgumentError, "Default namespace must be a symbol pointing to other ns."
     end
-    raise ArgumentError, "Store configuration not found in configuration" \
-      unless conf.has_key? :stores
   end
 
   def self.configure
@@ -49,21 +47,23 @@ module Goo
 
     configure_sanity_check(@@_configuration)
     stores = @@_configuration[:stores]
-    stores.each do |store|
-      SparqlRd::Repository.configuration(store)
+    if stores
+      stores.each do |store|
+        SparqlRd::Repository.configuration(store)
 
-      if store.has_key? :default and store[:default]
-        @@_default_store  = SparqlRd::Repository.endpoint(store[:name])
+        if store.has_key? :default and store[:default]
+          @@_default_store  = SparqlRd::Repository.endpoint(store[:name])
+        end
       end
+
+      @@_default_store = SparqlRd::Repository.endpoint(stores[0][:name]) \
+        if @@_default_store.nil?
     end
 
     if @@_configuration.include? :search_conf
       @@_search_conf = @@_configuration[:search_conf]
       @@_search_connection = RSolr.connect :url => @@_search_conf[:search_server]
     end
-
-    @@_default_store = SparqlRd::Repository.endpoint(stores[0][:name]) \
-      if @@_default_store.nil?
 
     @@_uuid_generator = UUID.new
     #somehow this upsets 4store
