@@ -59,6 +59,8 @@ module Goo
       attr_reader :inverse_atttributes
       attr_reader :errors
 
+      attr_accessor :internals, :uuid
+
       def initialize(attributes = {})
         if self.class.goop_settings[:schemaless]
           @attributes = attributes
@@ -80,9 +82,8 @@ module Goo
           unless self.class.goop_settings[:graph_policy] != nil
         super()
 
-        @attributes = attributes.dup
-        @attributes[:internals] = Internals.new(self)
-        @attributes[:internals].new_resource
+        @internals = Internals.new(self)
+        @internals.new_resource
 
         @_cached_exist = nil
         shape_instance
@@ -90,10 +91,10 @@ module Goo
         #anon objects have an uuid property
         policy = self.class.goop_settings[:unique][:generator]
         if policy == :anonymous
-          if !self.respond_to? :uuid
+          if !self.uuid
             self.class.shape_attribute :uuid
           end
-          if not @table.include? :uuid
+          if !self.uuid
             self.uuid = Goo.uuid.generate
           end
         end
@@ -144,12 +145,10 @@ module Goo
 
         #if attributes are set then set values for properties.
         @attributes.each_pair do |attr,value|
-          next if attr == :internals
           self.send("#{attr}=", *value, :in_load => true)
         end
-        internal_status = @attributes[:internals]
-        @table[:internals] = internal_status
-        @attributes = @table
+
+        @attributes
       end
 
       def method_missing(sym, *args, &block)
@@ -355,7 +354,7 @@ module Goo
           end
         end
 
-        if self.respond_to?(:uuid)
+        if self.uuid
           self.resource_id=
               Goo::Queries.get_resource_id_by_uuid(self.uuid, self.class, @store_name)
         end
@@ -714,7 +713,7 @@ module Goo
                 validator = Goo.validators[val].new(val_options)
                 val_options[:instance] = validator
               end
-              val_options[:instance].validate_each(self,att,@table[att])
+              val_options[:instance].validate_each(self,att,@attributes[att])
             end
           end
         end

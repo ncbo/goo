@@ -293,7 +293,7 @@ module Goo
             if self.class.inverse_attr?(attr)
               raise ArgumentError, "#{attr} is defined as inverse property and cannot be set."
             end
-            current_value = @table[attr]
+            current_value = @attributes[attr]
             value = args.flatten
             if value and !value.instance_of? SparqlRd::Resultset::Literal
               if !value.respond_to? :goop_settings
@@ -341,13 +341,17 @@ module Goo
               end
             end
             if !in_load
-              if attr != :uuid and @table[attr]
-                internals.modified = internals.modified || (@table[attr] != tvalue)
+              if attr != :uuid and @attributes[attr]
+                internals.modified = internals.modified || (@attributes[attr] != tvalue)
               elsif attr != :uuid
                 internals.modified = true
               end
             end
-            @table[attr] = tvalue
+            if attr == :uuid
+              self.uuid = tvalue
+            else
+              @attributes[attr] = tvalue
+            end
           end
 
           define_method("#{attr}") do |*args|
@@ -373,7 +377,7 @@ module Goo
 
             return inverse_attr_values(attr_cpy,origin_attr) if self.class.inverse_attr? attr_cpy
 
-            attr_value = @table[origin_attr]
+            attr_value = @attributes[origin_attr]
             #returning default value
             if attr_value.nil?
               return nil unless self.persistent?
@@ -381,7 +385,7 @@ module Goo
               if attrs.include? attr_cpy
                 if attrs[attr_cpy].include? :default
                   default_value = attrs[attr_cpy][:default].call(self)
-                  @table[attr_cpy] = default_value
+                  @attributes[attr_cpy] = default_value
                   return default_value
                 end
               end
