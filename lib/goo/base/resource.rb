@@ -1,6 +1,16 @@
 require_relative "settings/settings"
 require_relative "../utils/rdf"
 
+class OpenStruct
+  def keys
+    @table.keys
+  end
+
+  def each_key(&block)
+    @table.each_key(block)
+  end
+end
+
 class GooStruct < Struct
   # Override the initialize to handle hashes of named parameters
   def initialize(*args)
