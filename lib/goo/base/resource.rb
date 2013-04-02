@@ -50,7 +50,8 @@ end
 module Goo
   module Base
 
-    class Resource < OpenStruct
+    class Resource
+      STRUCT_DEFS = {}
       include Goo::Base::Settings
       include Goo::Search
 
@@ -59,6 +60,19 @@ module Goo
       attr_reader :errors
 
       def initialize(attributes = {})
+        if self.class.goop_settings[:schemaless]
+          @attributes = attributes
+        else
+          members = self.class.goop_settings[:attributes].keys
+          struct_cls = STRUCT_DEFS[members.hash]
+          if struct_cls.nil?
+            struct_cls = GooStruct.new(self.class.name.gsub("::", ""), *members)
+            STRUCT_DEFS[members.hash] = struct_cls
+          end
+          @attributes = struct_cls.new(*attributes.values)
+        end
+
+
         model = self.class.goop_settings[:model]
         raise ArgumentError, "Can't create model, model settings do not contain model type." \
           unless model != nil
