@@ -1,6 +1,42 @@
 require_relative "settings/settings"
 require_relative "../utils/rdf"
 
+class GooStruct < Struct
+  # Override the initialize to handle hashes of named parameters
+  def initialize(*args)
+    if (args.length == 1 and args.first.instance_of? Hash) then
+      args.first.each_pair do |k, v|
+        if members.include? k then
+          self[k] = v
+        end
+      end
+    else
+      super *args
+    end
+  end
+
+  alias :keys :members
+  alias :has_key? :include?
+
+  def [](member)
+    return nil if member.nil?
+    self.send(member) rescue nil
+  end
+
+  def []=(member, values)
+    self.send("#{member}=", values)
+  end
+
+  def include?(member)
+    @_members_set ||= Set.new(self.members)
+    @_members_set.include?(member)
+  end
+
+  def empty?
+    self.values.empty?
+  end
+end
+
 module Goo
   module Base
 
