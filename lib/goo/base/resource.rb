@@ -145,6 +145,7 @@ module Goo
 
         #if attributes are set then set values for properties.
         @attributes.each_pair do |attr,value|
+          next if value.nil?
           self.send("#{attr}=", *value, :in_load => true)
         end
 
