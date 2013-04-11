@@ -9,9 +9,41 @@ if ENV["COVERAGE"].eql?("true")
   end
 end
 
-require 'test/unit'
+require 'minitest/unit'
+MiniTest::Unit.autorun
 
 require_relative "../lib/goo.rb"
+
+class GooUnit < MiniTest::Unit
+  def before_suites
+    # code to run before the first test (gets inherited in sub-tests)
+  end
+
+  def after_suites
+    # code to run after the last test (gets inherited in sub-tests)
+  end
+
+  def _run_suites(suites, type)
+    begin
+      before_suites
+      super(suites, type)
+    ensure
+      after_suites
+    end
+  end
+
+  def _run_suite(suite, type)
+    begin
+      suite.before_suite if suite.respond_to?(:before_suite)
+      super(suite, type)
+    ensure
+      suite.after_suite if suite.respond_to?(:after_suite)
+    end
+  end
+end
+
+GooUnit.runner = GooUnit.new
+
 
 module TestInit
   def self.configure_goo
@@ -36,7 +68,7 @@ module TestInit
   end
 end
 
-class TestCase < Test::Unit::TestCase
+class TestCase < MiniTest::Unit::TestCase
   def no_triples_for_subject(resource_id)
     rs = Goo.store().query("SELECT * WHERE { #{resource_id.to_turtle} ?p ?o }")
     rs.each_solution do |sol|

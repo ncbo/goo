@@ -158,13 +158,13 @@ class TestModelwhere < TestCase
     end
 
     #issue 75. Nil pointer with nested objects and unknown attributes
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       ToyObject.where(:name_xxxx => { xxx: 1 } )
     end
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       ToyObject.where(:name_xxxx => nil )
     end
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
     ToyObject.where(:name_x => { xxx: 1 })
     end
     toys = ToyObject.where(:name_x => "x", :only_known => false)
@@ -176,7 +176,7 @@ class TestModelwhere < TestCase
     with_names = ToyObject.where(:name_x => "x", :only_known => false, :load_attrs => [:name])
     with_names.each do |c|
       assert c.name != nil
-      assert_raise NoMethodError do
+      assert_raises NoMethodError do
         c.xxxxxx
       end
     end

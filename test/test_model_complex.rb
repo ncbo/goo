@@ -61,17 +61,17 @@ class TestModelComplex < TestCase
     assert_equal 1, count_pattern("GRAPH <#{submission.resource_id.value}> { #{vehicle.resource_id.to_turtle} a ?type . }")
 
     #where should not accept resource id
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       Term.where submission: submission, resource_id: "http://someiri.org/vehicle"
     end
 
     #should fail because there is no :unique
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       Term.find("xx")
     end
 
     #find should receive IRI objects
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       ts = Term.find("http://someiri.org/vehicle", submission: submission)
     end
 
@@ -92,7 +92,7 @@ class TestModelComplex < TestCase
     term.save
     assert_equal 1, count_pattern("GRAPH <#{submission.resource_id.value}> { #{vehicle.resource_id.to_turtle} a ?type . }")
 
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       terms = Term.all
     end
 
@@ -227,7 +227,7 @@ class TestModelComplex < TestCase
     assert cargovan.valid?
     cargovan.save
 
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       #children as inverse cannot be assigned
       minivan.children = cargovan
     end
@@ -447,10 +447,10 @@ class TestModelComplex < TestCase
     read_only = Term.read_only("http://example.org/term/1", data)
     assert read_only.resource_id.kind_of? SparqlRd::Resultset::IRI
     assert read_only.resource_id.value == "http://example.org/term/1"
-    assert_raise Exception do
+    assert_raises Exception do
       read_only.save
     end
-    assert_raise Exception do
+    assert_raises Exception do
       read_only.delete
     end
     assert read_only.prefLabel.kind_of? SparqlRd::Resultset::StringLiteral

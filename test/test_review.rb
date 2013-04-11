@@ -17,7 +17,7 @@ class Review < Goo::Base::Resource
       end
 end
 
-class TestReview < Test::Unit::TestCase
+class TestReview < MiniTest::Unit::TestCase
 
   def initialize(*args)
     super(*args)

@@ -99,7 +99,7 @@ class TestModelOntology < TestCase
 
       onts = Ontology.where(acronym: "SNOMED", submissionId: 1)
       onts[0].projects.each do |p|
-        assert_raise ArgumentError do
+        assert_raises ArgumentError do
           p.load
         end
         assert p.some_stuff.length == 1
@@ -200,7 +200,7 @@ class TestModelOntology < TestCase
             :name => "Great Project"
       })
       p.ontologyUsed = ont
-      p.save 
+      p.save
       assert ont.projects.length == 1
       flush()
     end

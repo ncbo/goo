@@ -100,7 +100,7 @@ class TestModelPersonPersistB < TestCase
     end
     assert_equal false, person.exist?(reload=true)
     person.save
-    assert_raise Goo::Base::KeyFieldUpdateError do
+    assert_raises Goo::Base::KeyFieldUpdateError do
       person_update = PersonPersist.new()
       person_update.load(person.resource_id, load_attrs: :all)
       person_update.name = "changed name"
