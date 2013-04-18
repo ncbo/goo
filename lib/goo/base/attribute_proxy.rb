@@ -15,6 +15,7 @@ module Goo
           end
           return value
         end
+        value = value.first if value.is_a?(Array) && value.first.is_a?(SparqlRd::Resultset::BooleanLiteral)
         if value.kind_of? Array
           if @validator.options[:max] and value.length > @validator.options[:max]
             #TODO review this
