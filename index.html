@@ -1,0 +1,332 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Goo by ncbo</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Goo</h1>
+        <p>Graph Oriented Objects for Ruby (Goo)</p>
+        <p class="view"><a href="https://github.com/ncbo/goo">View the Project on GitHub <small>ncbo/goo</small></a></p>
+        <ul>
+          <li><a href="https://github.com/ncbo/goo/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/ncbo/goo/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/ncbo/goo">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<em>Graph Oriented Objects</em> for Ruby  (Goo)</h1>
+
+<p><em>Goo</em> is a Ruby library that provides ORM-alike capabilities to interact with <a href="http://en.wikipedia.org/wiki/Resource_Description_Framework">RDF</a>/<a href="http://en.wikipedia.org/wiki/SPARQL">SPARQL</a> backends. <em>Goo</em> provides a DSL for defining schemas for objects and controls how they get validated, serialized, saved and retrieved from the triplestore. Using RDF and SPARQL for large-scale applications creates challenges in terms of both scalability and technology adoption. We designed Goo with two main objectives:</p>
+
+<ul>
+<li><p><em>Goo</em> abstracts SPARQL in a way that developers do not need to be SPARQL experts to efficiently handle large RDF graphs.</p></li>
+<li><p><em>Goo</em> was initially design to serve <a href="http://bioportal.bioontology.org/">BioPortal</a> growing REST traffic. BioPortal's REST API provides access to hundreds of millions of Biomedical artifacts. Scalability and efficiency is at the core of <em>Goo's</em> design.</p></li>
+</ul><h2>Schema Definitions (DSL)</h2>
+
+<h3>Basic Definitions</h3>
+
+<p><em>Goo</em> models are defined by extending <a href="/docs/Goo/Base/Resource">Resource</a> and providing one <a href="">model</a> definition and <a href="">attribute</a> definitions. The example below provides defines a <code>User</code> model with two attributes <code>username</code> and <code>email</code>. In this model:</p>
+
+<pre><code>require 'goo'
+
+class User &lt; Goo::Base::Resource
+  model :user, name_with: :username
+  attribute :username, enforce: [:existence, :unique]
+  attribute :email, enforce: [:existence, :email]
+end
+</code></pre>
+
+<ul>
+<li>
+<code>:name_with</code> tells this object to take the value of the <code>username</code> attribute to generate a URI that uniquely identifies an instance. <code>:name_with</code> also accepts a lambda function for flexible naming policies, for example: </li>
+</ul><div class="highlight"><pre><span class="n">name_with</span><span class="p">:</span> <span class="nb">lambda</span> <span class="p">{</span> <span class="o">|</span><span class="n">u</span><span class="o">|</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:URI</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http:// .... /some/uri}"</span> <span class="p">}</span>
+</pre></div>
+
+<ul>
+<li>
+<p><code>:enforce</code> is the option to establish validations at the attribute level. It accepts an array of elements. In this example there are three different validations:</p>
+
+<ul>
+<li>
+<code>:existence</code> to force the attribute to hold a value. This attribute cannot be <code>nil</code>.</li>
+<li>
+<code>:unique</code> to force the value of the attribute to be unique across all the instances of the same type.</li>
+<li>
+<code>:email</code> to force the value of the attribute to be an string that is a valid email.</li>
+</ul>
+</li>
+</ul><h3>Object Dependencies</h3>
+
+<p>With <code>:enforce</code> one can tell <em>Goo</em> that that attribute should hold instance values of other <em>Goo</em> type.  For instance, say that: <em>A user can be assigned one or many roles</em> and the <code>Role</code> model looks like this:</p>
+
+<div class="highlight"><pre><span class="k">class</span> <span class="nc">Role</span> <span class="o">&lt;</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Base</span><span class="o">::</span><span class="no">Resource</span>
+  <span class="n">model</span> <span class="ss">:role</span><span class="p">,</span> <span class="n">name_with</span><span class="p">:</span> <span class="ss">:code</span>
+  <span class="n">attribute</span> <span class="ss">:code</span><span class="p">,</span> <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:existence</span><span class="p">,</span> <span class="ss">:unique</span><span class="o">]</span>
+<span class="k">end</span>
+</pre></div>
+
+<p>We now add a new attribute <code>:roles</code> in <code>User</code>. The <code>:enforce</code> setting for this attribute include: <code>:list</code> to tell the system that this attribute can hold array values and <code>:role</code>; <code>:role</code> is a symbol that refers to some other <em>Goo</em> type. <em>Goo</em> will enforce all the values of this attribute to be instances of the <code>Role</code> type.</p>
+
+<div class="highlight"><pre><span class="n">attribute</span> <span class="ss">:roles</span><span class="p">,</span> <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:list</span><span class="p">,</span> <span class="ss">:role</span><span class="p">,</span> <span class="ss">:existence</span><span class="o">]</span>
+<span class="c1">#Notice that this attribute complements the above User definition.</span>
+</pre></div>
+
+<p>We can also connect back <code>Role</code> to <code>User</code> using the <code>inverse</code> setting. Say you want to retrieve all the users that are assigned a certain role. To be able to navigate the graph both ways we need to provide the inverse relation. The following definition tells <code>Goo</code> that when looking at a <code>Role</code> instance one can retrieve users by inversing the attribute <code>roles</code> from the user instance.</p>
+
+<div class="highlight"><pre><span class="n">attribute</span> <span class="ss">:users</span><span class="p">,</span> <span class="ss">inverse</span><span class="p">:</span> <span class="p">{</span> <span class="ss">on</span><span class="p">:</span> <span class="no">User</span><span class="p">,</span> <span class="ss">attribute</span><span class="p">:</span> <span class="ss">:roles</span> <span class="p">}</span>
+<span class="c1">#Notice that this attribute complements the above Role definition.</span>
+</pre></div>
+
+<h3>Validators List</h3>
+
+<p>The are a variety of built-in validators that can be used with the <code>enforce</code> option, these include: <code>:string</code>, <code>:date_time</code>, <code>:float</code>, <code>:integer</code>, <code>:list</code>, <code>:unique</code>, <code>:existence</code>, <code>:min</code>, <code>:max</code>, <code>:email</code>, <code>:uri</code>, <code>:boolean</code>. </p>
+
+<p>Optionally one also can provide a lambda for implementing custom validations.</p>
+
+<h3>Other Model and Attribute Options</h3>
+
+<ul>
+<li>
+<code>:namespace</code> both model and attribute definitions accept the <code>:namespace</code> option to refer to specific vocabularies in our application (see <a href="#Configuration">Configuration</a> for namespace definitions). For instance:</li>
+</ul><div class="highlight"><pre><span class="n">model</span> <span class="ss">:person</span><span class="p">,</span> <span class="ss">namespace</span><span class="p">:</span> <span class="ss">:foaf</span><span class="p">,</span> <span class="n">name_with</span><span class="p">:</span> <span class="o">.</span><span class="n">.</span>
+</pre></div>
+
+<ul>
+<li>
+<code>:default</code> to provide default values to an attribute via lambda functions. For instance:</li>
+</ul><div class="highlight"><pre><span class="n">attribute</span> <span class="ss">:created</span><span class="p">,</span> <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span> <span class="no">DateTime</span> <span class="o">]</span><span class="p">,</span>
+        <span class="ss">default</span><span class="p">:</span> <span class="nb">lambda</span> <span class="p">{</span> <span class="o">|</span><span class="n">record</span><span class="o">|</span> <span class="no">DateTime</span><span class="o">.</span><span class="n">now</span> <span class="p">}</span>
+</pre></div>
+
+<ul>
+<li>
+<code>:property</code>: this setting allow us to map attributes to RDF predicates and use different names. For instance, say we want to have an attribute named <code>parents</code> that maps to <code>rdfs:subClassOf</code> in the triple store:</li>
+</ul><div class="highlight"><pre><span class="n">attribute</span> <span class="ss">:parents</span><span class="p">,</span> <span class="ss">namespace</span><span class="p">:</span> <span class="ss">:rdfs</span><span class="p">,</span> <span class="ss">property</span><span class="p">:</span> <span class="ss">:subClassOf</span><span class="p">,</span>
+                    <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:class</span><span class="p">,</span> <span class="ss">:list</span><span class="o">]</span>
+</pre></div>
+
+<h2>Saving, updating and deleting.</h2>
+
+<ul>
+<li>Instance creation:</li>
+</ul><div class="highlight"><pre><span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">new</span>
+<span class="n">u</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="s2">"paul"</span>
+<span class="n">u</span><span class="o">.</span><span class="n">save</span> 
+<span class="c1">#save throws NotValidException </span>
+<span class="c1">#in case any validator breaks</span>
+</pre></div>
+
+<ul>
+<li>Testing for valid objects: </li>
+</ul><div class="highlight"><pre><span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">new</span>
+<span class="n">u</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"paul"</span>
+<span class="k">if</span> <span class="o">!</span><span class="n">u</span><span class="o">.</span><span class="n">valid?</span>
+ <span class="nb">puts</span> <span class="n">u</span><span class="o">.</span><span class="n">errors</span>
+<span class="k">end</span>
+</pre></div>
+
+<ul>
+<li>Updating an instance:</li>
+</ul><div class="highlight"><pre><span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"paul"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+<span class="c1">#or</span>
+<span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">username</span><span class="p">:</span> <span class="s2">"paul"</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#update the object with an array of roles</span>
+<span class="n">u</span><span class="o">.</span><span class="n">roles</span> <span class="o">=</span> <span class="o">[</span><span class="no">Roles</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="o">]</span>
+<span class="n">u</span><span class="o">.</span><span class="n">save</span> 
+</pre></div>
+
+<p>Note: <code>.find("paul")</code> can be used because <code>User</code> has <code>username</code> as <code>name_with</code> setting, in addition <code>username</code> is <code>unique</code>. This allow us to use this shortcut.</p>
+
+<ul>
+<li>Deleting:</li>
+</ul><div class="highlight"><pre><span class="c1">#delete `paul`</span>
+<span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"paul"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="o">.</span><span class="n">delete</span>
+
+<span class="c1">#delete all users</span>
+<span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">u</span><span class="o">|</span>
+  <span class="n">u</span><span class="o">.</span><span class="n">delete</span>
+<span class="k">end</span>
+</pre></div>
+
+<h2>Querying</h2>
+
+<p><em>Goo's</em> provides a flexible API for querying the SPARQL backend. There are two main <code>Resource</code> calls for creating queries: <code>Resource.find</code> and <code>Resource.where</code> </p>
+
+<h3>Resource.find - searching single instances</h3>
+
+<ul>
+<li>Getting a resource reference:</li>
+</ul><div class="highlight"><pre><span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="ss">RDF</span><span class="p">:</span><span class="ss">:URI</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://example.org/paul"</span><span class="p">))</span><span class="o">.</span><span class="n">first</span>
+<span class="n">u</span><span class="o">.</span><span class="n">is_a?</span><span class="p">(</span><span class="no">User</span><span class="p">)</span> <span class="c1">#true</span>
+<span class="nb">puts</span> <span class="n">u</span><span class="o">.</span><span class="n">username</span> <span class="c1">#throws AttributeNotLoaded exception</span>
+</pre></div>
+
+<p><em>Goo</em> by default does not attach any attribute values to an instance when retrieving data. This is to improve efficiency by only retrieving the attributes we care about in our application. To change this behaviour we can always overload <code>find</code> our <em>Goo</em> types.</p>
+
+<p>We can attach object attributes by chaining <code>include</code> calls:</p>
+
+<div class="highlight"><pre><span class="n">user_id</span> <span class="o">=</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:URI</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://example.org/paul"</span><span class="p">)</span>
+
+<span class="c1">#include username</span>
+<span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+
+<span class="c1">#include username and roles</span>
+<span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">,</span> <span class="ss">:roles</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+
+<span class="c1">#equivalent</span>
+<span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:roles</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+
+<span class="c1">#embed attributes from dependent objects</span>
+<span class="c1">#from roles include their codes</span>
+<span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">roles</span><span class="p">:</span> <span class="o">[</span><span class="ss">:code</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+<span class="nb">puts</span> <span class="n">u</span><span class="o">.</span><span class="n">roles</span><span class="o">[</span><span class="mi">0</span><span class="o">].</span><span class="n">code</span> <span class="c1">#"admin"</span>
+
+<span class="c1">#include all the attributes - except inverse attributes</span>
+<span class="n">admin</span> <span class="o">=</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="no">Role</span><span class="o">.</span><span class="n">attributes</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+
+<span class="c1">#include all the attributes - including inverse</span>
+<span class="n">admin</span> <span class="o">=</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="no">Role</span><span class="o">.</span><span class="n">attributes</span><span class="p">(</span><span class="ss">:all</span><span class="p">))</span><span class="o">.</span><span class="n">first</span>
+
+</pre></div>
+
+<p>Note: <code>include</code> is also avalaible for the <code>Resource.where</code> API call.</p>
+
+<h3>Resource.where - Graph Pattern Matching</h3>
+
+<p><code>Resource.where</code> offers an easy way to perform complex graph matching operations.</p>
+
+<div class="highlight"><pre><span class="c1">#retrieve all the users with name paul that have the admin role.</span>
+<span class="n">users</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">lastname</span><span class="p">:</span> <span class="s2">"paul"</span><span class="p">,</span> <span class="ss">role</span><span class="p">:</span> <span class="o">[</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span> <span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#same and attach attributes</span>
+<span class="n">users</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">lastname</span><span class="p">:</span> <span class="s2">"paul"</span><span class="p">,</span> <span class="ss">role</span><span class="p">:</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">)</span>
+                    <span class="kp">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">,</span> <span class="ss">:birthdate</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+</pre></div>
+
+<p>The options passed into <code>where</code> reassembles a graph matching structure and can be read as follows;</p>
+
+<div class="highlight"><pre><span class="c1">#match 'lastname' edges that sink into literal objects "paul"</span>
+<span class="o">[</span> <span class="ss">lastname</span><span class="p">:</span> <span class="s2">"paul"</span> <span class="p">,</span>
+<span class="c1">#AND match 'role' edges that sink into 'admin' objects.</span>
+<span class="ss">role</span><span class="p">:</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span> <span class="o">]</span>
+</pre></div>
+
+<p><em>Goo</em> allows for more complex scenarios. Say we had an scenario where our models are <code>Student</code>, <code>Programs</code>, <code>Category</code> and <code>University</code> and the relations between types:</p>
+
+<ul>
+<li>Students enrol programs, ie: <em>Susan enrols Bioinformatics</em>
+</li>
+<li>Programs have categories. ie: <em>Bioinformatics has categories Biology and Computer Science</em> </li>
+<li>Programs belong to universities, ie: <em>Bioinformatics is at Stanford</em>
+</li>
+</ul><div class="highlight"><pre><span class="c1">#retrieve all student enrolled in a program that has categories </span>
+<span class="c1"># with  code "Biology" and "Chemistry"</span>
+<span class="n">students</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">category</span><span class="p">:</span> <span class="o">[</span> <span class="ss">code</span><span class="p">:</span> <span class="s2">"Biology"</span> <span class="o">]]</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">and</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">category</span><span class="p">:</span> <span class="o">[</span> <span class="ss">code</span><span class="p">:</span> <span class="s2">"Chemistry"</span> <span class="o">]]</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#retrieve all students enrolled in a program that belongs to a university</span>
+<span class="c1">#that is named "Stanford" and attach student names, and embed programs</span>
+<span class="c1">#and programs should be retrieved with their names.</span>
+<span class="n">students</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">university</span><span class="p">:</span> <span class="o">[</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"Stanford"</span><span class="o">]]</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:name</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#We can also perform OR operations. Retrieve programs that have</span>
+<span class="c1"># category codes "Medicine" or "Engineering"</span>
+<span class="n">prs</span> <span class="o">=</span> <span class="no">Program</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">category</span><span class="p">:</span> <span class="o">[</span><span class="ss">code</span><span class="p">:</span> <span class="s2">"Medicine"</span><span class="o">]</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">or</span><span class="p">(</span><span class="ss">category</span><span class="p">:</span> <span class="o">[</span><span class="ss">code</span><span class="p">:</span> <span class="s2">"Engineering"</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#From these 4 students tell me who are enrolled in programs that </span>
+<span class="c1">#are categorized as Medicine AND Chemistry</span>
+<span class="n">medicine</span> <span class="o">=</span> <span class="no">Category</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"Medicine"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+<span class="n">chemistry</span> <span class="o">=</span> <span class="no">Category</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"Chemistry"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+<span class="n">st</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"Daniel"</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">or</span><span class="p">(</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"Louis"</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">or</span><span class="p">(</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"Lee"</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">or</span><span class="p">(</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"John"</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">and</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">category</span><span class="p">:</span> <span class="n">medicine</span><span class="o">]</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">and</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">category</span><span class="p">:</span> <span class="n">chemistry</span><span class="o">]</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+</pre></div>
+
+<p>Note: for a slightly more complex but similar scenario see ./test/test_where.rb</p>
+
+<h3>Filters and Range Queries</h3>
+
+<div class="highlight"><pre><span class="c1">#students born later than ...</span>
+<span class="n">f</span> <span class="o">=</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:birth_date</span><span class="p">)</span> <span class="o">&gt;</span> <span class="no">DateTime</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s1">'1978-01-03'</span><span class="p">)</span>
+<span class="n">st</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#students born between two dates</span>
+<span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:birth_date</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="no">DateTime</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s1">'1978-01-01'</span><span class="p">))</span>
+      <span class="o">.</span><span class="n">or</span><span class="p">(</span><span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:birth_date</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="no">DateTime</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s1">'1978-01-07'</span><span class="p">))</span>
+<span class="n">st</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+<span class="c1">#students enrolled in programs with more than 8 credits</span>
+<span class="n">f</span> <span class="o">=</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span> <span class="ss">:credits</span> <span class="o">]</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">8</span>
+<span class="n">st</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+</pre></div>
+
+<p>Say our scenario has an attribute <code>award</code> in <code>Student</code> to record a list of awards that a student has earned. Now we want to find all the students with no wining awards.</p>
+
+<div class="highlight"><pre><span class="c1">#students without awards</span>
+<span class="n">f</span> <span class="o">=</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:awards</span><span class="p">)</span><span class="o">.</span><span class="n">unbound</span>
+<span class="n">st</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                  <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:name</span><span class="p">)</span>
+                  <span class="o">.</span><span class="n">all</span>
+</pre></div>
+
+<h3>Working with unknown attributes - schemaless objects</h3>
+
+<p>It is often the case when dealing with Linked Data and RDF that might not be able to map all RDF attributes into application attributes but still we might want to be able to retrieve them. Unknown or unmapped attributes can be retrieved with any of the retrieval methods (find or where) by including the symbol <code>:unmapped</code>. When doing so the models wil be retrieved with an attribute <code>@unmmaped</code>, that attribute is <code>Hash</code> where the keys are the RDF predicates of that resources and the values arrays of objects.</p>
+
+<div class="highlight"><pre> <span class="nb">p</span> <span class="o">=</span> <span class="no">Person</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="ss">RDF</span><span class="p">:</span><span class="ss">:URI</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="no">SOME_URI</span><span class="p">))</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:unmapped</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+ <span class="nb">p</span><span class="o">.</span><span class="n">unmmaped</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">property</span><span class="p">,</span><span class="n">values</span><span class="o">|</span>
+   <span class="nb">puts</span> <span class="s2">"handle unknown attributes"</span>
+ <span class="k">end</span>
+</pre></div>
+
+<p>We can search on known attributes and at retrieve unmmaped predicates:</p>
+
+<div class="highlight"><pre><span class="n">sts</span> <span class="o">=</span> <span class="no">Student</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">enrolled</span><span class="p">:</span> <span class="o">[</span><span class="ss">university</span><span class="p">:</span> <span class="o">[</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"Stanford"</span><span class="o">]]</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:unmapped</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+</pre></div>
+
+<p>This capability is important when dealing with scenarios of data integration of Linked Data resources.</p>
+
+<h2>Configuration</h2>
+
+<h2>Advance Topics</h2>
+
+<h3>Collections and Named Graphs</h3>
+
+<h3>Caching and Indexing</h3>
+
+<h3>Fast retrieval of read-only objects</h3>
+
+<h3>Aggregators</h3>
+      </section>
+    </div>
+    <footer>
+      <p>Project maintained by <a href="https://github.com/ncbo">ncbo</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
