@@ -312,15 +312,87 @@
 
 <h2>Configuration</h2>
 
+<p>Configuration is set by passing code block to <code>Goo.configure</code>. The <code>conf</code> object responds to calls to:</p>
+
+<ul>
+<li>add_namespace: With this call we set the relation between Ruby symbols used in the DSL and RDF Vocabularies.</li>
+<li>add_sparql_backend: This call is to provide the endpoints of the SPARQL server. There are three endpoints <code>query</code>, <code>update</code> and <code>data</code>.</li>
+<li>add_redis_backend: The Redis host can be optionally added using this call. This is only required if indexes are used.</li>
+</ul><div class="highlight"><pre><span class="no">Goo</span><span class="o">.</span><span class="n">configure</span> <span class="k">do</span> <span class="o">|</span><span class="n">conf</span><span class="o">|</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_namespace</span><span class="p">(</span><span class="ss">:omv</span><span class="p">,</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:Vocabulary</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://omv.org/ontology/"</span><span class="p">))</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_namespace</span><span class="p">(</span><span class="ss">:skos</span><span class="p">,</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:Vocabulary</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://www.w3.org/2004/02/skos/core#"</span><span class="p">))</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_namespace</span><span class="p">(</span><span class="ss">:owl</span><span class="p">,</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:Vocabulary</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://www.w3.org/2002/07/owl#"</span><span class="p">))</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_namespace</span><span class="p">(</span><span class="ss">:rdfs</span><span class="p">,</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:Vocabulary</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://www.w3.org/2000/01/rdf-schema#"</span><span class="p">))</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_namespace</span><span class="p">(</span><span class="ss">:goo</span><span class="p">,</span> <span class="ss">RDF</span><span class="p">:</span><span class="ss">:Vocabulary</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"http://goo.org/default/"</span><span class="p">),</span><span class="n">default</span><span class="o">=</span><span class="kp">true</span><span class="p">)</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_sparql_backend</span><span class="p">(</span><span class="ss">:main</span><span class="p">,</span> <span class="ss">query</span><span class="p">:</span> <span class="s2">"http://localhost:9000/sparql/"</span><span class="p">,</span>
+                            <span class="ss">data</span><span class="p">:</span> <span class="s2">"http://localhost:9000/data/"</span><span class="p">,</span>
+                            <span class="ss">update</span><span class="p">:</span> <span class="s2">"http://localhost:9000/update/"</span><span class="p">,</span>
+                            <span class="ss">options</span><span class="p">:</span> <span class="p">{</span> <span class="ss">rules</span><span class="p">:</span> <span class="ss">:NONE</span> <span class="p">})</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">add_redis_backend</span><span class="p">(</span><span class="ss">:host</span> <span class="o">=&gt;</span> <span class="s2">"localhost"</span><span class="p">)</span>
+<span class="k">end</span>
+</pre></div>
+
 <h2>Advance Topics</h2>
 
 <h3>Collections and Named Graphs</h3>
 
+<p>Collections allow to save objects in a specific named graph and information can be attached to the named to implement data provenance. So say you have terms that belong to a website and the website URL is going to be the ID of the named graph. Additionally we have some data about the web site.</p>
+
+<div class="highlight"><pre><span class="nb">require</span> <span class="s1">'goo'</span>
+
+<span class="k">class</span> <span class="nc">Term</span> <span class="o">&lt;</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Base</span><span class="o">::</span><span class="no">Resource</span>
+  <span class="n">model</span> <span class="ss">:term</span><span class="p">,</span> <span class="n">name_with</span><span class="p">:</span> <span class="ss">:name</span><span class="p">,</span> <span class="ss">collection</span><span class="p">:</span> <span class="ss">:website</span>
+  <span class="n">attribute</span> <span class="ss">:name</span><span class="p">,</span> <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:existence</span><span class="p">,</span> <span class="ss">:unique</span><span class="o">]</span>
+  <span class="n">attribute</span> <span class="ss">:extracted_from</span><span class="p">,</span> <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:website</span><span class="o">]</span>
+<span class="k">end</span>
+
+<span class="k">class</span> <span class="nc">Website</span> <span class="o">&lt;</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Base</span><span class="o">::</span><span class="no">Resource</span>
+   <span class="n">model</span> <span class="ss">:website</span><span class="p">,</span> <span class="n">name_with</span><span class="p">:</span> <span class="ss">:url</span>
+   <span class="n">attribute</span> <span class="ss">:url</span><span class="p">,</span> <span class="n">enforce</span> <span class="o">[</span><span class="ss">:existence</span><span class="p">,</span> <span class="ss">:unique</span><span class="o">]</span>
+   <span class="n">attribute</span> <span class="ss">:author</span><span class="p">,</span> <span class="n">enforce</span> <span class="o">[</span><span class="ss">:user</span><span class="o">]</span>
+<span class="k">end</span>
+
+<span class="n">website</span> <span class="o">=</span> <span class="no">Website</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">url</span><span class="p">:</span> <span class="s2">"http://example.com"</span><span class="p">,</span> <span class="ss">author</span><span class="p">:</span> <span class="n">some_user</span><span class="p">)</span><span class="o">.</span><span class="n">save</span>
+
+<span class="c1">#saving</span>
+<span class="n">t</span> <span class="o">=</span> <span class="no">Term</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="nb">name</span><span class="p">:</span> <span class="s2">"some term"</span><span class="p">,</span> <span class="n">extracted_from</span><span class="p">:</span> <span class="n">website</span><span class="p">)</span><span class="o">.</span><span class="n">save</span>
+
+<span class="c1">#searching</span>
+<span class="n">terms</span> <span class="o">=</span> <span class="no">Term</span><span class="o">.</span><span class="n">where</span><span class="p">(</span> <span class="n">some_search_pattern</span> <span class="p">)</span><span class="o">.</span><span class="n">in</span><span class="p">(</span><span class="n">website</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
+
+</pre></div>
+
+<p>Chaining the search with <code>.in( provenance_object )</code> will constrain the search to just the graph of a specific object. </p>
+
 <h3>Caching and Indexing</h3>
+
+<p>When implementing pagination, we normally return statistical information about the number of resources across all pages, number of pages, links to next and previous pages and the information about the resources contained in the current page. In SPARQL, pagination happens at the level of triples. In Goo, we provide built-in capabilities to cache this pagination-related data. This approach works best for resources that are mostly read-only or for resources where getting the most recent information is not critical (e.g., the ontology information)
+The example below shows the indexing of ontology classes by label and its use to access a page of information.</p>
+
+<div class="highlight"><pre><span class="n">ontology</span> <span class="o">=</span> <span class="no">Ontology</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="ss">RDF</span><span class="p">:</span><span class="ss">:URI</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="no">ONT_ID</span><span class="p">))</span>
+<span class="c1">#index</span>
+<span class="no">Klass</span><span class="o">.</span><span class="n">in</span><span class="p">(</span><span class="n">ontology</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="ss">label</span><span class="p">:</span> <span class="ss">:asc</span><span class="p">)</span><span class="o">.</span><span class="n">index_as</span><span class="p">(</span><span class="s2">"my_index"</span><span class="p">)</span>
+
+<span class="c1">#search with the index</span>
+<span class="n">first_page</span> <span class="o">=</span> <span class="no">Klass</span><span class="o">.</span><span class="n">in</span><span class="p">(</span><span class="n">ontology</span><span class="p">)</span><span class="o">.</span><span class="n">with_index</span><span class="p">(</span><span class="s2">"my_index"</span><span class="p">)</span>
+              <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:label</span><span class="p">,</span> <span class="ss">:synonym</span><span class="p">)</span><span class="o">.</span><span class="n">page</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+</pre></div>
 
 <h3>Fast retrieval of read-only objects</h3>
 
+<p>In most dynamic languages, objects can be expensive data structures and one can save memory and CPU time by using cheaper data containers. The Ruby platform provides the <code>Struct</code> class. Simple benchmarks show that the instantiation of <code>Struct</code> objects can be up to 63% faster than Goo Resource objects. This is mainly due to the internal objects that Goo maintains to track each object's state. These internal objects are of no use when the application is only reading and not writing. 
+To trigger the retrieval of read-only objects in Goo we call the <code>.read_only</code> when issuing a query, i.e:</p>
+
+<div class="highlight"><pre><span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">,</span> <span class="ss">:email</span><span class="p">)</span><span class="o">.</span><span class="n">read_only</span>
+</pre></div>
+
 <h3>Aggregators</h3>
+
+<p>documentation TODO just an example ...</p>
+
+<h3>Profiler</h3>
+
+<p>Implemented … documentation TODO</p>
         </section>
 
         <aside id="sidebar">
