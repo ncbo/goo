@@ -18,7 +18,7 @@ require_relative "goo/validators/enforce"
 require_relative "goo/utils/utils"
 
 module Goo
-  
+
   @@resource_options = Set.new([:persistent]).freeze
 
   @@configure_flag = false
@@ -36,7 +36,7 @@ module Goo
 
   def self.add_namespace(shortcut, namespace,default=false)
     if !(namespace.instance_of? RDF::Vocabulary)
-      raise ArgumentError, "Namespace must be a RDF::Vocabulary object" 
+      raise ArgumentError, "Namespace must be a RDF::Vocabulary object"
     end
     @@namespaces[shortcut.to_sym] = namespace
     @@default_namespace = shortcut if default
@@ -51,11 +51,11 @@ module Goo
     @@sparql_backends = @@sparql_backends.dup
     @@sparql_backends[name] = opts
     @@sparql_backends[name][:query]=Goo::SPARQL::Client.new(opts[:query],
-                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded" })
+                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded", read_timeout: 10000 })
     @@sparql_backends[name][:update]=Goo::SPARQL::Client.new(opts[:update],
-                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded" })
+                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded", read_timeout: 10000 })
     @@sparql_backends[name][:data]=Goo::SPARQL::Client.new(opts[:data],
-                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded" })
+                 {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded", read_timeout: 10000 })
     @@sparql_backends.freeze
   end
 
@@ -88,7 +88,7 @@ module Goo
     if not block_given?
       raise ArgumentError, "Configuration needs to receive a code block"
     end
-    yield self 
+    yield self
     configure_sanity_check()
     if @@search_backends.length > 0
       @@search_connection = RSolr.connect :url => search_conf()
@@ -157,7 +157,7 @@ module Goo
 
   def self.vocabulary(namespace=nil)
     return @@namespaces[@@default_namespace] if namespace.nil?
-    return @@namespaces[namespace] 
+    return @@namespaces[namespace]
   end
 
   def self.pluralize_models?
