@@ -29,16 +29,24 @@
       <div class="inner clearfix">
         <section id="main-content">
           <h1>
-<em>Graph Oriented Objects</em> for Ruby  (Goo)</h1>
+<a name="graph-oriented-objects-for-ruby--goo" class="anchor" href="#graph-oriented-objects-for-ruby--goo"><span class="octicon octicon-link"></span></a><em>Graph Oriented Objects</em> for Ruby  (Goo)</h1>
 
 <p><em>Goo</em> is a Ruby library that provides ORM-alike capabilities to interact with <a href="http://en.wikipedia.org/wiki/Resource_Description_Framework">RDF</a>/<a href="http://en.wikipedia.org/wiki/SPARQL">SPARQL</a> backends. <em>Goo</em> provides a DSL for defining schemas for objects and controls how they get validated, serialized, saved and retrieved from the triplestore. Using RDF and SPARQL for large-scale applications creates challenges in terms of both scalability and technology adoption. We designed Goo with two main objectives:</p>
 
 <ul>
 <li><p><em>Goo</em> abstracts SPARQL in a way that developers do not need to be SPARQL experts to efficiently handle large RDF graphs.</p></li>
-<li><p><em>Goo</em> was initially design to serve <a href="http://bioportal.bioontology.org/">BioPortal</a> growing REST traffic. BioPortal's REST API provides access to hundreds of millions of Biomedical artifacts. Scalability and efficiency is at the core of <em>Goo's</em> design.</p></li>
-</ul><h2>Schema Definitions (DSL)</h2>
+<li><p><em>Goo</em> is designed to serve <a href="http://bioportal.bioontology.org/">BioPortal</a> growing REST traffic. BioPortal's REST API provides access to hundreds of millions of Biomedical artifacts. Scalability and efficiency is at the core of <em>Goo's</em> design.</p></li>
+</ul><p>To see Goo in action browse to the following links:</p>
 
-<h3>Basic Definitions</h3>
+<ul>
+<li><a href="https://github.com/ncbo/ontologies_linked_data/tree/master/lib/ontologies_linked_data/models">BioPortal Models</a></li>
+<li><a href="http://stagedata.bioontology.org/documentation">BioPortal New API Documentation</a></li>
+<li><a href="http://stagedata.bioontology.org/">BioPortal New API Access</a></li>
+</ul><h2>
+<a name="schema-definitions-dsl" class="anchor" href="#schema-definitions-dsl"><span class="octicon octicon-link"></span></a>Schema Definitions (DSL)</h2>
+
+<h3>
+<a name="basic-definitions" class="anchor" href="#basic-definitions"><span class="octicon octicon-link"></span></a>Basic Definitions</h3>
 
 <p><em>Goo</em> models are defined by extending <a href="/docs/Goo/Base/Resource">Resource</a> and providing one <a href="">model</a> definition and <a href="">attribute</a> definitions. The example below provides defines a <code>User</code> model with two attributes <code>username</code> and <code>email</code>. In this model:</p>
 
@@ -70,7 +78,8 @@
 <code>:email</code> to force the value of the attribute to be an string that is a valid email.</li>
 </ul>
 </li>
-</ul><h3>Object Dependencies</h3>
+</ul><h3>
+<a name="object-dependencies" class="anchor" href="#object-dependencies"><span class="octicon octicon-link"></span></a>Object Dependencies</h3>
 
 <p>With <code>:enforce</code> one can tell <em>Goo</em> that that attribute should hold instance values of other <em>Goo</em> type.  For instance, say that: <em>A user can be assigned one or many roles</em> and the <code>Role</code> model looks like this:</p>
 
@@ -92,13 +101,15 @@
 <span class="c1">#Notice that this attribute complements the above Role definition.</span>
 </pre></div>
 
-<h3>Validators List</h3>
+<h3>
+<a name="validators-list" class="anchor" href="#validators-list"><span class="octicon octicon-link"></span></a>Validators List</h3>
 
 <p>The are a variety of built-in validators that can be used with the <code>enforce</code> option, these include: <code>:string</code>, <code>:date_time</code>, <code>:float</code>, <code>:integer</code>, <code>:list</code>, <code>:unique</code>, <code>:existence</code>, <code>:min</code>, <code>:max</code>, <code>:email</code>, <code>:uri</code>, <code>:boolean</code>. </p>
 
 <p>Optionally one also can provide a lambda for implementing custom validations.</p>
 
-<h3>Other Model and Attribute Options</h3>
+<h3>
+<a name="other-model-and-attribute-options" class="anchor" href="#other-model-and-attribute-options"><span class="octicon octicon-link"></span></a>Other Model and Attribute Options</h3>
 
 <ul>
 <li>
@@ -120,7 +131,8 @@
                     <span class="ss">enforce</span><span class="p">:</span> <span class="o">[</span><span class="ss">:class</span><span class="p">,</span> <span class="ss">:list</span><span class="o">]</span>
 </pre></div>
 
-<h2>Saving, updating and deleting.</h2>
+<h2>
+<a name="saving-updating-and-deleting" class="anchor" href="#saving-updating-and-deleting"><span class="octicon octicon-link"></span></a>Saving, updating and deleting.</h2>
 
 <ul>
 <li>Instance creation:</li>
@@ -164,11 +176,13 @@
 <span class="k">end</span>
 </pre></div>
 
-<h2>Querying</h2>
+<h2>
+<a name="querying" class="anchor" href="#querying"><span class="octicon octicon-link"></span></a>Querying</h2>
 
 <p><em>Goo's</em> provides a flexible API for querying the SPARQL backend. There are two main <code>Resource</code> calls for creating queries: <code>Resource.find</code> and <code>Resource.where</code> </p>
 
-<h3>Resource.find - searching single instances</h3>
+<h3>
+<a name="resourcefind---searching-single-instances" class="anchor" href="#resourcefind---searching-single-instances"><span class="octicon octicon-link"></span></a>Resource.find - searching single instances</h3>
 
 <ul>
 <li>Getting a resource reference:</li>
@@ -203,11 +217,13 @@
 <span class="c1">#include all the attributes - including inverse</span>
 <span class="n">admin</span> <span class="o">=</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="no">Role</span><span class="o">.</span><span class="n">attributes</span><span class="p">(</span><span class="ss">:all</span><span class="p">))</span><span class="o">.</span><span class="n">first</span>
 
+
 </pre></div>
 
 <p>Note: <code>include</code> is also avalaible for the <code>Resource.where</code> API call.</p>
 
-<h3>Resource.where - Graph Pattern Matching</h3>
+<h3>
+<a name="resourcewhere---graph-pattern-matching" class="anchor" href="#resourcewhere---graph-pattern-matching"><span class="octicon octicon-link"></span></a>Resource.where - Graph Pattern Matching</h3>
 
 <p><code>Resource.where</code> offers an easy way to perform complex graph matching operations.</p>
 
@@ -218,6 +234,8 @@
 <span class="n">users</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">lastname</span><span class="p">:</span> <span class="s2">"paul"</span><span class="p">,</span> <span class="ss">role</span><span class="p">:</span> <span class="no">Role</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"admin"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">)</span>
                     <span class="kp">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">,</span> <span class="ss">:birthdate</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
 
+<span class="c1">#iteratively including attributes</span>
+<span class="no">Users</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">models</span><span class="p">(</span><span class="n">users</span><span class="p">)</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:some_extra_attr</span><span class="p">)</span><span class="o">.</span><span class="n">all</span>
 </pre></div>
 
 <p>The options passed into <code>where</code> reassembles a graph matching structure and can be read as follows;</p>
@@ -267,7 +285,8 @@
 
 <p>Note: for a slightly more complex but similar scenario see ./test/test_where.rb</p>
 
-<h3>Filters and Range Queries</h3>
+<h3>
+<a name="filters-and-range-queries" class="anchor" href="#filters-and-range-queries"><span class="octicon octicon-link"></span></a>Filters and Range Queries</h3>
 
 <div class="highlight"><pre><span class="c1">#students born later than ...</span>
 <span class="n">f</span> <span class="o">=</span> <span class="ss">Goo</span><span class="p">:</span><span class="ss">:Filter</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:birth_date</span><span class="p">)</span> <span class="o">&gt;</span> <span class="no">DateTime</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s1">'1978-01-03'</span><span class="p">)</span>
@@ -292,7 +311,8 @@
                   <span class="o">.</span><span class="n">all</span>
 </pre></div>
 
-<h3>Working with unknown attributes - schemaless objects</h3>
+<h3>
+<a name="working-with-unknown-attributes---schemaless-objects" class="anchor" href="#working-with-unknown-attributes---schemaless-objects"><span class="octicon octicon-link"></span></a>Working with unknown attributes - schemaless objects</h3>
 
 <p>It is often the case when dealing with Linked Data and RDF that might not be able to map all RDF attributes into application attributes but still we might want to be able to retrieve them. Unknown or unmapped attributes can be retrieved with any of the retrieval methods (find or where) by including the symbol <code>:unmapped</code>. When doing so the models wil be retrieved with an attribute <code>@unmmaped</code>, that attribute is <code>Hash</code> where the keys are the RDF predicates of that resources and the values arrays of objects.</p>
 
@@ -310,7 +330,8 @@
 
 <p>This capability is important when dealing with scenarios of data integration of Linked Data resources.</p>
 
-<h2>Configuration</h2>
+<h2>
+<a name="configuration" class="anchor" href="#configuration"><span class="octicon octicon-link"></span></a>Configuration</h2>
 
 <p>Configuration is set by passing code block to <code>Goo.configure</code>. The <code>conf</code> object responds to calls to:</p>
 
@@ -332,9 +353,11 @@
 <span class="k">end</span>
 </pre></div>
 
-<h2>Advance Topics</h2>
+<h2>
+<a name="advance-topics" class="anchor" href="#advance-topics"><span class="octicon octicon-link"></span></a>Advance Topics</h2>
 
-<h3>Collections and Named Graphs</h3>
+<h3>
+<a name="collections-and-named-graphs" class="anchor" href="#collections-and-named-graphs"><span class="octicon octicon-link"></span></a>Collections and Named Graphs</h3>
 
 <p>Collections allow to save objects in a specific named graph and information can be attached to the named to implement data provenance. So say you have terms that belong to a website and the website URL is going to be the ID of the named graph. Additionally we have some data about the web site.</p>
 
@@ -364,7 +387,8 @@
 
 <p>Chaining the search with <code>.in( provenance_object )</code> will constrain the search to just the graph of a specific object. </p>
 
-<h3>Caching and Indexing</h3>
+<h3>
+<a name="caching-and-indexing" class="anchor" href="#caching-and-indexing"><span class="octicon octicon-link"></span></a>Caching and Indexing</h3>
 
 <p>When implementing pagination, we normally return statistical information about the number of resources across all pages, number of pages, links to next and previous pages and the information about the resources contained in the current page. In SPARQL, pagination happens at the level of triples. In Goo, we provide built-in capabilities to cache this pagination-related data. This approach works best for resources that are mostly read-only or for resources where getting the most recent information is not critical (e.g., the ontology information)
 The example below shows the indexing of ontology classes by label and its use to access a page of information.</p>
@@ -378,7 +402,8 @@ The example below shows the indexing of ontology classes by label and its use to
               <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:label</span><span class="p">,</span> <span class="ss">:synonym</span><span class="p">)</span><span class="o">.</span><span class="n">page</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
 </pre></div>
 
-<h3>Fast retrieval of read-only objects</h3>
+<h3>
+<a name="fast-retrieval-of-read-only-objects" class="anchor" href="#fast-retrieval-of-read-only-objects"><span class="octicon octicon-link"></span></a>Fast retrieval of read-only objects</h3>
 
 <p>In most dynamic languages, objects can be expensive data structures and one can save memory and CPU time by using cheaper data containers. The Ruby platform provides the <code>Struct</code> class. Simple benchmarks show that the instantiation of <code>Struct</code> objects can be up to 63% faster than Goo Resource objects. This is mainly due to the internal objects that Goo maintains to track each object's state. These internal objects are of no use when the application is only reading and not writing. 
 To trigger the retrieval of read-only objects in Goo we call the <code>.read_only</code> when issuing a query, i.e:</p>
@@ -386,11 +411,13 @@ To trigger the retrieval of read-only objects in Goo we call the <code>.read_onl
 <div class="highlight"><pre><span class="no">User</span><span class="o">.</span><span class="n">where</span><span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="ss">:username</span><span class="p">,</span> <span class="ss">:email</span><span class="p">)</span><span class="o">.</span><span class="n">read_only</span>
 </pre></div>
 
-<h3>Aggregators</h3>
+<h3>
+<a name="aggregators" class="anchor" href="#aggregators"><span class="octicon octicon-link"></span></a>Aggregators</h3>
 
 <p>documentation TODO just an example ...</p>
 
-<h3>Profiler</h3>
+<h3>
+<a name="profiler" class="anchor" href="#profiler"><span class="octicon octicon-link"></span></a>Profiler</h3>
 
 <p>Implemented … documentation TODO</p>
         </section>
