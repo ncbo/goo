@@ -178,6 +178,10 @@ module Goo
     @@uuid.generate
   end
 
+  def self.write_in_chunks?
+    true
+  end
+
   #A debug middleware for rack applications
   class Debug
     def initialize(app = nil)
