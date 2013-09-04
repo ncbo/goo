@@ -148,5 +148,43 @@ module TestChunkWrite
       end
     end
 
+    def test_query_flood
+      ntriples_file_path = "./test/data/nemo_ontology.ntriples"
+      #by pass in chunks
+      url = Goo.sparql_data_client.url
+      params = {
+        method: :put,
+        url: "#{url.to_s}#{ONT_ID}",
+        payload: File.read(ntriples_file_path),
+        headers: {content_type: "application/x-turtle"},
+        timeout: -1
+      }
+      RestClient::Request.execute(params)
+
+      threads = []
+      25.times do |i|
+        threads << Thread.new {
+          50.times do |j|
+            oq = "SELECT (count(?s) as ?c) WHERE { ?s a ?o }"
+            Goo.sparql_query_client.query(oq).each do |sol|
+              assert sol[:c].object > 0
+            end
+          end
+        }
+      end
+      log_status = []
+      Thread.new {
+        10.times do |i|
+          log_status << Goo.sparql_query_client.status
+          sleep(1.2)
+        end
+      }
+      threads.each do |t|
+        t.join
+      end
+      assert log_status.map { |x| x[:outstanding] }.max > 0
+      assert log_status.map { |x| x[:running] }.max == 16
+    end
+
   end
 end
