@@ -141,7 +141,6 @@ module TestChunkWrite
       assert count_queries == 5
       tdelete.join
       count = "SELECT (count(?s) as ?c) WHERE { GRAPH <#{ONT_ID_EXTRA}> { ?s ?p ?o }}"
-      puts "deleted completed"
       Goo.sparql_query_client.query(count).each do |sol|
         assert sol[:c].object == 0
       end

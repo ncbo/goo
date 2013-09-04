@@ -31,6 +31,7 @@ module Goo
       end
 
       def slice_file(file_path,mime_type)
+        mime_type = "application/rdf+xml" if mime_type.nil?
         format = MIMETYPE_RAPPER_MAP[mime_type]
         if format.nil?
           raise Exception, "mime_type #{mime_type} not supported in slicing"
