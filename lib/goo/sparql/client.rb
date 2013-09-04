@@ -166,6 +166,27 @@ module Goo
         }
         return RestClient::Request.execute(params)
       end
+
+
+      def extract_number_from(i,text)
+        res = []
+        while (text[i] != '<')
+          res << text[i]
+          i += 1
+        end
+        return 0 if res.length == 0
+        return res.join("").to_i
+      end
+
+      def status
+        status_url = (url.to_s.split("/")[0..-2].join "/") + "/status/"
+        resp_text =  Net::HTTP.get(URI(status_url))
+        running = extract_number_from(230,resp_text)
+        out_text = "Outstanding queries</th><td>"
+        i_out = resp_text.index(out_text) + out_text.length
+        outstanding = extract_number_from(i_out,resp_text)
+        return { running: running, outstanding: outstanding }
+      end
     end
   end
 end
