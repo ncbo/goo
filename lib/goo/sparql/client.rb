@@ -67,8 +67,7 @@ module Goo
             end
             if more_triples
               Goo.sparql_update_client.delete_data(graph_delete, graph: graph)
-              puts "deleted"
-              sleep(1.5)
+              sleep(0.75)
             end
           end while(more_triples)
         end
