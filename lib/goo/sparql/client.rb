@@ -13,6 +13,23 @@ module Goo
         "application/n-triples" => "ntriples"
       }
 
+      def status_based_sleep_time(operation)
+        status
+        if status[:running] < 2
+          return 0.2
+        end
+        if status[:outstanding] > 20
+          raise Exception, "Too many outstanding queries. We cannot write to the backend"
+        end
+        if status[:outstanding] > 0
+          return 20
+        end
+        if operation == :delete
+          return 1.0 
+        end 
+        return 0.5
+      end
+
       def slice_file(file_path,mime_type)
         format = MIMETYPE_RAPPER_MAP[mime_type]
         if format.nil?
@@ -67,7 +84,7 @@ module Goo
             end
             if more_triples
               Goo.sparql_update_client.delete_data(graph_delete, graph: graph)
-              sleep(0.75)
+              sleep(status_based_sleep_time(:delete))
             end
           end while(more_triples)
         end
@@ -90,7 +107,7 @@ module Goo
             timeout: -1
           }
           response = RestClient::Request.execute(params)
-          sleep(2.5)
+          sleep(status_based_sleep_time(:append))
         end
         return response
        
