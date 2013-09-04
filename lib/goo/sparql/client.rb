@@ -65,11 +65,8 @@ module Goo
               more_triples = true
               graph_delete << [t[:s],p,t[:o]]
             end
-            puts "deleting"
-            begin
+            if more_triples
               Goo.sparql_update_client.delete_data(graph_delete, graph: graph)
-            rescue
-              binding.pry
             end
             puts "deleted"
             sleep(2.5)
