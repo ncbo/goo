@@ -79,7 +79,6 @@ module Goo
           else
             #TODO review this case
             raise ArgumentError, "Unmapped wihout collection not tested"
-            graph = @where_options_load[:klass].type_uri
           end
           equivalent_predicates = Goo::SPARQL::Queries.sub_property_predicates(graph)
           #TODO compute closure
@@ -106,7 +105,6 @@ module Goo
           else
             #TODO review this case
             raise ArgumentError, "Unmapped wihout collection not tested"
-            graph = @where_options_load[:klass].type_uri
           end
           predicates = Goo::SPARQL::Queries.graph_predicates(graph)
           if predicates.length == 0

@@ -13,7 +13,8 @@ class Term < Goo::Base::Resource
   model :class,
         namespace: :owl,
         collection: :submission,
-        name_with: :id
+        name_with: :id,
+        rdf_type: lambda { |x| self.class_rdf_type(x) }
 
   attribute :submission, enforce: [:existence]
   attribute :prefLabel, namespace: :skos, enforce: [:existence]
@@ -21,11 +22,42 @@ class Term < Goo::Base::Resource
   attribute :definition, namespace: :skos, enforce: [:list]
   attribute :deprecated, namespace: :owl
 
-  attribute :parents, namespace: :rdfs, property: :subClassOf, enforce: [:list, :class]
-  attribute :ancestors, namespace: :rdfs, property: :subClassOf, enforce: [:list, :class], transitive: true
+  attribute :parents, 
+            namespace: :rdfs, 
+            property: lambda { |x| tree_property(x) },
+            enforce: [:list, :class]
 
-  attribute :children, namespace: :rdfs, property: :subClassOf, inverse: { on: :class , attribute: :parents }
-  attribute :descendants, namespace: :rdfs, property: :subClassOf, inverse: { on: :class , attribute: :parents }, transitive: true
+  attribute :ancestors, 
+            namespace: :rdfs, 
+            property: lambda { |x| tree_property(x) },
+            enforce: [:list, :class], transitive: true
+
+  attribute :children, 
+            namespace: :rdfs, 
+            property: lambda { |x| tree_property(x) },
+            inverse: { on: :class , attribute: :parents }
+
+  attribute :descendants, 
+            namespace: :rdfs, 
+            property: lambda { |x| tree_property(x) },
+            inverse: { on: :class , attribute: :parents }, 
+            transitive: true
+
+  def self.tree_property(*args)
+    collection = args.flatten.first
+    if collection.id.to_s["submission1"]
+      return RDF::RDFS[:subClassOf]
+    end
+    return RDF::SKOS[:broader]
+  end
+
+  def self.class_rdf_type(*args)
+    collection = args.flatten.first
+    if collection.id.to_s["submission1"]
+      return RDF::OWL[:Class]
+    end
+    return RDF::SKOS[:Concept]
+  end
 end
 
 class TestModelComplex < MiniTest::Unit::TestCase
@@ -87,7 +119,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     ss3 = submissions.select {|x| x.name == "submission3" }.first
 
     assert_equal 4, GooTest.count_pattern(
-      "GRAPH #{ss1.id.to_ntriples} { ?s a #{Term.type_uri.to_ntriples} . }")
+      "GRAPH #{ss1.id.to_ntriples} { ?s a #{Term.type_uri(ss1).to_ntriples} . }")
 
     res =  Term.find("http://someiri.org/vehicle/0").in(ss1).first
     assert res.id == RDF::URI.new("http://someiri.org/vehicle/0")
@@ -108,7 +140,9 @@ class TestModelComplex < MiniTest::Unit::TestCase
       end
     end
 
-    Goo.sparql_data_client.delete_graph(Term.type_uri)
+    Goo.sparql_data_client.delete_graph(ss1.id)
+    Goo.sparql_data_client.delete_graph(ss2.id)
+    Goo.sparql_data_client.delete_graph(ss3.id)
     Goo.sparql_data_client.delete_graph(Submission.type_uri)
 
   end
@@ -276,7 +310,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     van.save
 
     assert_equal 1, GooTest.count_pattern(
-      "GRAPH #{submission.id.to_ntriples} { #{van.id.to_ntriples} <http://www.w3.org/2000/01/rdf-schema#subClassOf> ?p . }")
+      "GRAPH #{submission.id.to_ntriples} { #{van.id.to_ntriples} #{RDF::RDFS[:subClassOf].to_ntriples} ?p . }")
     cargo = Term.new
     cargo.submission = submission
     cargo.id = RDF::URI.new "http://someiri.org/cargo"

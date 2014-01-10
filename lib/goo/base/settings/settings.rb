@@ -19,7 +19,7 @@ module Goo
         def model(*args)
 
           if args.length == 0
-            binding.pry
+            raise ArgumentError, "model should have args"
           end
 
           model_name = args[0]
@@ -43,6 +43,7 @@ module Goo
           @uri_type = @namespace[@model_name.to_s.camelize]
           @model_settings[:range] = {}
           @model_settings[:attributes] = {}
+          @model_settings[:rdf_type] = options[:rdf_type]
 
           #registering a new models forces to redo ranges
           Goo.models.each do |k,m|
@@ -161,7 +162,7 @@ module Goo
           if @model_settings[:attributes][attr][:inverse]
             on = @model_settings[:attributes][attr][:inverse][:on]
             if Goo.models.include?(on) || on.respond_to?(:model_name)
-              on = Goo.models[on] if on.instance_of?(Symbol) rescue binding.pry
+              on = Goo.models[on] if on.instance_of?(Symbol)
               @model_settings[:range][attr]=on
             end
           end
@@ -181,16 +182,25 @@ module Goo
           namespace = attribute_namespace(attr_name)
           namespace = namespace || @model_settings[:namespace]
           vocab = Goo.vocabulary(namespace) #returns default for nil input
-          @attribute_uris[attr_name] = vocab[options[:property] || attr_name]
+          if options[:property].is_a?(Proc)
+            @attribute_uris[attr_name] = options[:property]
+          else
+            @attribute_uris[attr_name] = vocab[options[:property] || attr_name]
+          end
           if options[:enforce].include?(:unique) and options[:enforce].include?(:list)
             raise ArgumentError, ":list options cannot be combined with :list"
           end
           set_range(attr_name)
         end
 
-        def attribute_uri(attr)
-          raise ArgumentError, ":id cannot be treated as predicate for .where, use find " if attr == :id
+        def attribute_uri(attr,*args)
+          if attr == :id
+            raise ArgumentError, ":id cannot be treated as predicate for .where, use find "
+          end
           uri = @attribute_uris[attr]
+          if uri.is_a?(Proc)
+            uri = uri.call(*args.flatten)
+          end
           return uri unless uri.nil?
           attr_string = attr.to_s
           Goo.namespaces.keys.each do |ns|
@@ -207,7 +217,9 @@ module Goo
           return if attr == :resource_id
           attr = attr.to_sym
           define_method("#{attr}=") do |*args|
-            if self.class.inverse?(attr) && !(args && args.last.instance_of?(Hash) && args.last[:on_load])
+            if self.class.inverse?(attr) &&
+                 !(args && args.last.instance_of?(Hash) &&
+                 args.last[:on_load])
               raise ArgumentError,
                 "`#{attr}` is an inverse attribute. Values cannot be assigned."
             end
@@ -215,7 +227,8 @@ module Goo
             value = args[0]
             unless args.last.instance_of?(Hash) and args.last[:on_load]
               if self.persistent? and self.class.name_with == attr
-                raise ArgumentError, "`#{attr}` attribute is used to name this resource and cannot be modified."
+                raise ArgumentError, 
+                    "`#{attr}` attribute is used to name this resource and cannot be modified."
               end
               prev = self.instance_variable_get("@#{attr}")
               if !prev.nil? and !@modified_attributes.include?(attr)
@@ -249,7 +262,10 @@ module Goo
           return namespace[ model_name_uri + '/' + Goo.uuid]
         end
 
-        def uri_type
+        def uri_type(*args)
+          if @model_settings[:rdf_type]
+            return @model_settings[:rdf_type].call(*args)
+          end
           return @uri_type
         end
         alias :type_uri :uri_type
@@ -317,10 +333,15 @@ module Goo
 
         STRUCT_CACHE = {}
         ##
-        # Return a struct-based, read-only instance for a class that is populated with the contents of `attributes`
+        # Return a struct-based, 
+        # read-only instance for a class that is populated with the contents of `attributes`
         def read_only(attributes)
-          raise ArgumentError, "`attributes` must be a hash of attribute/value pairs" if !attributes.is_a?(Hash) || attributes.empty?
-          raise ArgumentError, "`attributes` must contain a key for `id`" unless attributes.key?(:id)
+          if !attributes.is_a?(Hash) || attributes.empty?
+            raise ArgumentError, "`attributes` must be a hash of attribute/value pairs"
+          end
+          unless attributes.key?(:id)
+            raise ArgumentError, "`attributes` must contain a key for `id`"
+          end
           attributes = attributes.symbolize_keys
           STRUCT_CACHE[attributes.keys.hash] ||= struct_object(attributes.keys)
           cls = STRUCT_CACHE[attributes.keys.hash]

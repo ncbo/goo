@@ -1,7 +1,7 @@
 GIT
   remote: git://github.com/ncbo/sparql-client.git
-  revision: e1dfb143a3097066f81bfe13393ed93ec01c37ad
-  branch: staging
+  revision: 972f264109779a7522552cda0325755dbc004edc
+  branch: treeview
   specs:
     sparql-client (1.0.4.1)
       json_pure (>= 1.4)
@@ -34,10 +34,15 @@ GEM
     coderay (1.1.0)
     cube-ruby (0.0.3)
     daemons (1.1.9)
+<<<<<<< HEAD
     docile (1.1.1)
+=======
+    docile (1.1.0)
+>>>>>>> treeview
     eventmachine (1.0.3)
     i18n (0.6.5)
     json_pure (1.8.1)
+    lockfile (2.1.0)
     macaddr (1.6.1)
       systemu (~> 2.5.0)
     method_source (0.8.2)
@@ -45,7 +50,11 @@ GEM
     minitest (4.7.5)
     multi_json (1.8.2)
     net-http-persistent (2.9)
+<<<<<<< HEAD
     pry (0.9.12.4)
+=======
+    pry (0.9.12.3)
+>>>>>>> treeview
       coderay (~> 1.0)
       method_source (~> 0.8)
       slop (~> 3.4)
@@ -64,8 +73,14 @@ GEM
       mime-types (>= 1.16)
     rsolr (1.0.9)
       builder (>= 2.1.2)
+<<<<<<< HEAD
     simplecov (0.8.2)
       docile (~> 1.1.0)
+=======
+    simplecov (0.8.1)
+      docile (~> 1.1.0)
+      lockfile (>= 2.1.0)
+>>>>>>> treeview
       multi_json
       simplecov-html (~> 0.8.0)
     simplecov-html (0.8.0)

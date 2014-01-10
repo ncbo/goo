@@ -232,7 +232,7 @@ module Goo
         klass.attributes.each do |attr|
           next if inst.class.collection?(attr) #collection is already there
           next unless inst.respond_to?(attr)
-          attr_uri = klass.attribute_uri(attr).to_s
+          attr_uri = klass.attribute_uri(attr,inst.collection).to_s
           if unmapped_string_keys.include?(attr_uri.to_s) ||
               (equivalent_predicates && equivalent_predicates.include?(attr_uri))
             object = nil
