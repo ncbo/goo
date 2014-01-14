@@ -373,7 +373,7 @@ module Goo
         if @unmapped
           all_attr_uris = Set.new
           self.class.attributes.each do |attr|
-            all_attr_uris << self.class.attribute_uri(attr)
+            all_attr_uris << self.class.attribute_uri(attr,self.collection)
           end
           @unmapped.each do |attr,values|
             unless all_attr_uris.include?(attr)
