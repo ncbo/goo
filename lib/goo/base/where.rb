@@ -31,6 +31,7 @@ module Goo
         @rules = true
         @do_count = true
         @query_options = nil
+        @no_graphs = false
 
         #cache of retrieved predicates for unmapped queries
         #reused across pages
@@ -67,6 +68,11 @@ module Goo
             end
           end
         end while(changed)
+      end
+
+      def no_graphs
+        @no_graphs = true
+        return self
       end
 
       def retrieve_equivalent_predicates()
@@ -145,6 +151,7 @@ module Goo
                          filters: @filters, order_by: @order_by ,
                          read_only: @read_only, rules: @rules,
                          predicates: @predicates,
+                         no_graphs: @no_graphs,
                          equivalent_predicates: @equivalent_predicates }
 
 
@@ -339,6 +346,18 @@ module Goo
           options = options.first
         end
         options.each do |opt|
+          if opt.instance_of?(Symbol)
+            if @klass.handler?(opt)
+              raise ArgumentError, "Method based attribute cannot be included"
+            end
+          end
+          if opt.instance_of?(Hash)
+            opt.each do |k,v|
+              if @klass.handler?(k)
+                raise ArgumentError, "Method based attribute cannot be included"
+              end
+            end
+          end
           @include << opt if opt.instance_of?(Symbol)
           @include_embed.merge!(opt) if opt.instance_of?(Hash)
         end

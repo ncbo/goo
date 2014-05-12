@@ -40,7 +40,7 @@ class TestCache < MiniTest::Unit::TestCase
     assert programs.length == 1
     assert programs.first.id.to_s["Stanford/BioInformatics"]
     assert redis.exists("sparql:graph:http://goo.org/default/Program")
-    queries = redis.smembers(SPARQL::Client::SPARQL_CACHE_QUERIES)
+    queries = redis.smembers("sparql:graph:http://goo.org/default/Program")
     count = 0
     key = nil
     queries.each do |q|
@@ -52,7 +52,6 @@ class TestCache < MiniTest::Unit::TestCase
     assert count == 1
     assert !key.nil?
     assert redis.exists(key)
-    assert redis.sismember(SPARQL::Client::SPARQL_CACHE_QUERIES,key)
 
     
     prg = programs.first
@@ -61,8 +60,7 @@ class TestCache < MiniTest::Unit::TestCase
     prg.save
 
     #invalidated ?
-    assert !redis.exists(key)
-    assert !redis.sismember(SPARQL::Client::SPARQL_CACHE_QUERIES,key)
+    assert !redis.sismember("sparql:graph:http://goo.org/default/Program",key)
     programs = Program.where(name: "BioInformatics", university: [ name: "Stanford"  ]).all
     assert programs.length == 1
     prg = programs.first
@@ -83,7 +81,7 @@ class TestCache < MiniTest::Unit::TestCase
                           .include(:students).all
     assert programs.length == 1
     key = nil
-    queries = redis.smembers(SPARQL::Client::SPARQL_CACHE_QUERIES)
+    queries = redis.smembers("sparql:graph:http://goo.org/default/Program")
     count = 0
     queries.each do |q|
       if q["Program"]
@@ -94,7 +92,7 @@ class TestCache < MiniTest::Unit::TestCase
     assert count == 1
     assert !key.nil?
     assert redis.exists(key)
-    assert redis.sismember(SPARQL::Client::SPARQL_CACHE_QUERIES,key)
+    assert redis.sismember("sparql:graph:http://goo.org/default/Program",key)
 
     prg = programs.first
     assert prg.students.length == 2

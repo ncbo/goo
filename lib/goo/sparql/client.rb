@@ -44,7 +44,7 @@ module Goo
         if not status.success?
           raise Exception, "Rapper cannot parse #{format} file at #{file_path}: #{stderr}"
         end
-        filter_command = "grep -v '_:genid' #{dst_path} > #{dst_path_bnodes_out}"
+        filter_command = "LANG=C grep -v '_:genid' #{dst_path} > #{dst_path_bnodes_out}"
         stdout,stderr,status = Open3.capture3(filter_command)
         if not status.success?
           raise Exception, "could not `#{filter_command}`: #{stderr}"
@@ -62,11 +62,11 @@ module Goo
         end
         slices = []
         Dir.foreach(dir) do |item|
-          slices << File.join(dir,item) if item.start_with?("slice")
+          slices << File.join(dir,item) if item.include?("slice")
         end
         File.delete(dst_path)
         File.delete(dst_path_bnodes_out)
-        return slices
+        return slices,dir
       end
 
       def delete_data_slices(graph)
@@ -149,7 +149,7 @@ module Goo
 
       def append_triples_slice(graph,file_path,mime_type_in)
         start = Time.new
-        slices = slice_file(file_path,mime_type_in)
+        slices,dir = slice_file(file_path,mime_type_in)
         if @cube
           @cube.send("sparql_slice_file", DateTime.now, 
             duration_ms: ((Time.now - start)*1000).ceil,
@@ -190,6 +190,12 @@ module Goo
           end
           File.delete(slice_path)
           sleep(status_based_sleep_time(:append))
+        end
+        begin
+          FileUtils.rm_rf(dir)
+        rescue => e
+          puts "Error deleting tmp file #{dir}"
+          puts e.backtrace
         end
         return response
        

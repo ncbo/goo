@@ -39,6 +39,8 @@ module Goo
   @@debug_enabled = false
   @@use_cache = false
 
+  @@slice_loading_size = 500
+
   def self.add_namespace(shortcut, namespace,default=false)
     if !(namespace.instance_of? RDF::Vocabulary)
       raise ArgumentError, "Namespace must be a RDF::Vocabulary object"
@@ -77,7 +79,9 @@ module Goo
   end
 
   def self.test_reset
-    raise Exception, "only for testing" if @@sparql_backends[:main][:query].url.to_s["localhost"].nil?
+    if @@sparql_backends[:main][:query].url.to_s["localhost"].nil?
+      raise Exception, "only for testing" 
+    end
     @@sparql_backends[:main][:query]=Goo::SPARQL::Client.new("http://localhost:9000/sparql/",
                  {protocol: "1.1", "Content-Type" => "application/x-www-form-urlencoded", 
                    read_timeout: 300,
@@ -91,6 +95,14 @@ module Goo
 
   def self.use_cache?
     @@use_cache
+  end
+
+  def self.slice_loading_size=(value)
+    @@slice_loading_size = value
+  end
+
+  def self.slice_loading_size
+    return @@slice_loading_size
   end
 
   def self.queries_debug(flag)

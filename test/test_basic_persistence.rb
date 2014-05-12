@@ -3,6 +3,19 @@ require_relative 'test_case'
 GooTest.configure_goo
 
 
+module Dep
+  class Ontology < Goo::Base::Resource
+    model :ontology, name_with: :name
+    attribute :name, enforce: [:existence, :unique]
+    attribute :metric, enforce: [:existence, :unique, :metric]
+  end
+  class Metric < Goo::Base::Resource
+    model :metric, name_with: :code
+    attribute :code, enforce: [:existence, :unique]
+    attribute :value, enforce: [:existence, :unique]
+  end
+end
+
 class ArrayValues < Goo::Base::Resource
   model :array_values, name_with: :name
   attribute :name, enforce: [ :existence, :unique ]
@@ -404,6 +417,38 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert 0 == GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line1].to_ntriples} ?o")
     assert 0 == GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line2].to_ntriples} ?o")
     st.delete
+  end
+
+  def test_dependency_delete
+    Dep::Ontology.all.each do |x|
+      x.delete 
+    end
+    Dep::Metric.all.each do |x|
+      x.delete 
+    end
+
+    ont = Dep::Ontology.new
+    ont.name = "test"
+    met = Dep::Metric.new
+    met.code = "X"
+    met.value = "val"
+    met.save
+    ont.metric = met
+    ont.save
+    assert Dep::Ontology.all.length == 1
+    assert Dep::Metric.all.length == 1
+
+    ont = Dep::Ontology.where.include(:metric, :name).all.first   
+    
+    #some other process deletes the metric
+    Dep::Metric.all.first.delete
+
+    ont.metric.delete
+    ont.delete
+
+    assert Dep::Ontology.all.length == 0
+    assert Dep::Metric.all.length == 0
+
   end
 
 end

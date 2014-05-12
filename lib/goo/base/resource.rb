@@ -5,6 +5,8 @@ module Goo
   module Base
     AGGREGATE_VALUE = Struct.new(:attribute,:aggregate,:value)
 
+    class IDGenerationError < StandardError; end;
+
     class Resource
       include Goo::Base::Settings
       include Goo::Search
@@ -56,7 +58,10 @@ module Goo
               end
             rescue ArgumentError => e
               (validation_errors[uattr] ||= {})[:existence] = e.message
-            end 
+            end
+            if self.class.name_with == :id && @id.nil?
+              (validation_errors[:id] ||= {})[:existence] = ":id must be set if configured in name_with"
+            end
           end
         end
 
@@ -75,16 +80,19 @@ module Goo
       def id
         if @id.nil?
           if self.class.name_with == :id
-            raise ArgumentError, ":id must be set if configured in name_with"
-            return nil
+            raise IDGenerationError, ":id must be set if configured in name_with"
           end
           custom_name = self.class.name_with
           if custom_name.instance_of?(Symbol)
             @id = id_from_attribute()
           elsif custom_name
-            @id = custom_name.call(self)
+            begin
+              @id = custom_name.call(self)
+            rescue => e
+              raise IDGenerationError, "Problem with custom id generation: #{e.message}"
+            end
           else
-            raise RuntimeError, "custom_name is nil. settings for this model are incorrect."
+            raise IDGenerationError, "custom_name is nil. settings for this model are incorrect."
           end
         end
         return @id
@@ -103,14 +111,20 @@ module Goo
       end
 
       def exist?(from_valid=false)
-        
         #generate id with proc
-        id() unless self.class.name_with.kind_of?(Symbol)
+        begin
+          id() unless self.class.name_with.kind_of?(Symbol) 
+        rescue IDGenerationError
+        end
 
         _id = @id
-        if _id.nil? and !from_valid
-          _id = id_from_attribute()
+        if _id.nil? && !from_valid && self.class.name_with.is_a?(Symbol)
+          begin
+            _id = id_from_attribute()
+          rescue IDGenerationError
+          end
         end
+        return false unless _id
         return Goo::SPARQL::Queries.model_exist(self,id=_id)
       end
 
@@ -145,7 +159,7 @@ module Goo
           missing = missing_load_attributes
           options_load = { models: [ self ], klass: self.class, :include => missing }
           if self.class.collection_opts
-            options_load[:collection] = self.collection 
+            options_load[:collection] = self.collection
           end
           Goo::SPARQL::Queries.model_load(options_load)
         end
@@ -172,9 +186,15 @@ module Goo
         opts.each do |k|
           if k.kind_of?(Hash)
             k.each do |k2,v|
+              if self.class.handler?(k2)
+                raise ArgumentError, "Unable to bring a method based attr #{k2}"
+              end
               self.instance_variable_set("@#{k2}",nil)
             end
           else
+            if self.class.handler?(k)
+              raise ArgumentError, "Unable to bring a method based attr #{k}"
+            end
             self.instance_variable_set("@#{k}",nil)
           end
         end
@@ -204,7 +224,7 @@ module Goo
       end
 
       def self.map_attributes(inst,equivalent_predicates=nil)
-        if (inst.kind_of?(Goo::Base::Resource) && inst.unmapped.nil?) || 
+        if (inst.kind_of?(Goo::Base::Resource) && inst.unmapped.nil?) ||
             (!inst.respond_to?(:unmapped) && inst[:unmapped].nil?)
           raise ArgumentError, "Resource.map_attributes only works for :unmapped instances"
         end
@@ -240,11 +260,11 @@ module Goo
             end
             unless list_attrs.include?(attr)
               object = object.first
-            end 
+            end
             if inst.respond_to?(:klass)
               inst[attr] = object
             else
-              inst.send("#{attr}=",object, on_load: true) 
+              inst.send("#{attr}=",object, on_load: true)
             end
           else
             inst.send("#{attr}=",list_attrs.include?(attr) ? [] : nil, on_load: true)
@@ -267,7 +287,7 @@ module Goo
           end
         end
       end
-      
+
       def add_aggregate(attribute,aggregate,value)
         (@aggregates ||= []) << AGGREGATE_VALUE.new(attribute,aggregate,value)
       end
@@ -275,7 +295,7 @@ module Goo
       def save(*opts)
 
         if self.kind_of?(Goo::Base::Enum)
-          unless opts[0] && opts[0][:init_enum] 
+          unless opts[0] && opts[0][:init_enum]
             raise ArgumentError, "Enums can only be created on initialization"
           end
         end
@@ -287,12 +307,14 @@ module Goo
         end
 
         if !batch_file
-          raise ArgumentError, "Object is not modified" unless modified?
+          if not modified?
+            return self
+          end
           raise Goo::Base::NotValidException, "Object is not valid. Check errors." unless valid?
         end
 
         graph_insert, graph_delete = Goo::SPARQL::Triples.model_update_triples(self)
-        graph = self.graph() 
+        graph = self.graph()
         if graph_delete and graph_delete.size > 0
           begin
             Goo.sparql_update_client.delete_data(graph_delete, graph: graph)
@@ -305,9 +327,9 @@ module Goo
             if batch_file
               lines = []
               graph_insert.each do |t|
-                lines << [t.subject.to_ntriples, 
-                          t.predicate.to_ntriples, 
-                          t.object.to_ntriples, 
+                lines << [t.subject.to_ntriples,
+                          t.predicate.to_ntriples,
+                          t.object.to_ntriples,
                           graph.to_ntriples,
                           ".\n" ].join(' ')
               end

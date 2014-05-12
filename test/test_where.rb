@@ -262,6 +262,9 @@ class TestWhere < MiniTest::Unit::TestCase
 
   def test_unique_object_references
 
+    #NOTE: unique references does not apply across different slice loading
+    return if Goo.slice_loading_size < 100
+
     #students enrolled in a specific program
     students = Student.where(enrolled: 
                              Program.find(RDF::URI.new("http://example.org/program/Stanford/BioInformatics")).first)

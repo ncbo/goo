@@ -200,9 +200,6 @@ module Goo
         if klass.transitive?(attr)
           (query_options[:rules] ||=[]) << :SUBC
         end
-        if klass.alias?(attr)
-          #(query_options[:rules] ||=[]) << :SUBP
-        end
       end
 
       def self.patterns_for_match(klass,attr,value,graphs,patterns,unions,
@@ -241,10 +238,33 @@ module Goo
         end
       end
 
+      def self.model_load(*options)
+        options = options.last
+        if options[:models] and options[:models].is_a?(Array) and\
+                             options[:models].length > Goo.slice_loading_size
+          options = options.dup
+          models = options[:models]
+          include_options = options[:include]
+          models_by_id = Hash.new
+          models.each_slice(Goo.slice_loading_size) do |model_slice|
+            options[:models] = model_slice
+            unless include_options.nil?
+              options[:include] = include_options.dup
+            end
+            model_load_sliced(options)
+            model_slice.each do |m|
+              models_by_id[m.id] = m
+            end
+          end
+          return models_by_id
+        else
+          return self.model_load_sliced(options)
+        end
+      end
       ##
       # always a list of attributes with subject == id
       ##
-      def self.model_load(*options)
+      def self.model_load_sliced(*options)
         options = options.last
         ids = options[:ids]
         klass = options[:klass]
@@ -530,7 +550,6 @@ module Goo
           offset = (page[:page_i]-1) * page[:page_size]
           select.slice(offset,page[:page_size])
         end
-        select.from(graphs)
         select.distinct(true)
         if query_options && !binding_as
           query_options[:rules] = query_options[:rules].map { |x| x.to_s }.join("+")
@@ -539,6 +558,13 @@ module Goo
           query_options = { rules: ["NONE"] }
           select.options[:query_options] = query_options
         end
+
+        unless options[:no_graphs]
+          select.from(graphs.uniq)
+        else
+          select.options[:graphs] = graphs.uniq
+        end
+
         query_options.merge!(model_query_options) if model_query_options
         found = Set.new
         list_attributes = Set.new(klass.attributes(:list))
@@ -637,11 +663,11 @@ module Goo
 
             #dependent model creation
             if object.kind_of?(RDF::URI) && v != :id
-              if objects_new.include?(object)
-                object = objects_new[object]
-              else
-                range_for_v = klass.range(v)
-                if range_for_v
+              range_for_v = klass.range(v)
+              if range_for_v
+                if objects_new.include?(object)
+                  object = objects_new[object]
+                else
                   unless range_for_v.inmutable?
                     pre_val = nil
                     if models_by_id[id] &&
@@ -691,8 +717,10 @@ module Goo
                 models_by_id[id][v] = object
               end
             else
-              unless object.nil? && !models_by_id[id].instance_variable_get("@#{v.to_s}").nil?
-                models_by_id[id].send("#{v}=",object, on_load: true) if v != :id
+              if not models_by_id[id].class.handler?(v) 
+                unless object.nil? && !models_by_id[id].instance_variable_get("@#{v.to_s}").nil?
+                  models_by_id[id].send("#{v}=",object, on_load: true) if v != :id
+                end
               end
             end
           end

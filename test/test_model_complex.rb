@@ -58,6 +58,12 @@ class Term < Goo::Base::Resource
     end
     return RDF::SKOS[:Concept]
   end
+
+  attribute :methodBased, namespace: :rdfs, property: :subClassOf, handler: :dataMethod
+  def dataMethod
+    return "aaaa"
+  end
+
 end
 
 class TestModelComplex < MiniTest::Unit::TestCase
@@ -78,6 +84,36 @@ class TestModelComplex < MiniTest::Unit::TestCase
   def self.after_suite
     Goo.use_cache = false
     Goo.sparql_update_client.update("DELETE {?s ?p ?o } WHERE { ?s ?p ?o }")
+  end
+
+  def test_method_handler
+    x = Term.new 
+    y = x.methodBased
+    x.methodBased
+    assert y == "aaaa"
+    assert_raises ArgumentError do
+      x.methodBased= "aaaa"
+    end
+    sub = Submission.new(name: "submissionX").save
+    x.submission = sub
+    x.id = RDF::URI.new "http://someiri.org/term/x"
+    x.prefLabel = "x"
+    x.save
+    assert_raises ArgumentError do
+      y = Term.find(x.id).in(sub).include(:methodBased).first
+    end
+    assert_raises ArgumentError do
+      y = Term.find(x.id).in(sub).include(methodBased: [:prefLabel]).first
+    end
+    assert_raises ArgumentError do
+      y = Term.where.in(sub).include(:methodBased).all
+    end
+    y = Term.find(x.id).in(sub).first
+    assert_raises ArgumentError do
+      y.bring(:methodBased)
+    end
+    y.delete
+    sub.delete
   end
 
   def test_multiple_collection()
