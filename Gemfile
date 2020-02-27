@@ -5,7 +5,7 @@ gemspec
 gem 'rake'
 gem 'pry'
 gem 'simplecov'
-gem 'minitest', '< 5.0'
+gem 'minitest', '< 6.0'
 gem 'activesupport'
 gem "uuid"
 gem 'cube-ruby', require: "cube"
