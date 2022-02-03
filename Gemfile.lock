@@ -12,7 +12,7 @@ PATH
   remote: .
   specs:
     goo (0.0.2)
-      addressable (= 2.3.5)
+      addressable (= 2.8.0)
       pry
       rdf (= 1.0.8)
       redis
@@ -31,7 +31,8 @@ GEM
       multi_json (~> 1.3)
       thread_safe (~> 0.1)
       tzinfo (~> 0.3.37)
-    addressable (2.3.5)
+    addressable (2.8.0)
+      public_suffix (>= 2.0.2, < 5.0)
     builder (3.2.4)
     coderay (1.1.3)
     concurrent-ruby (1.1.9)
@@ -86,6 +87,7 @@ GEM
     pry (0.14.1)
       coderay (~> 1.1)
       method_source (~> 1.0)
+    public_suffix (4.0.6)
     rack (2.2.3)
     rack-accept (0.4.5)
       rack (>= 0.4)
