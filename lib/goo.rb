@@ -19,7 +19,9 @@ require_relative "goo/validators/enforce"
 require_relative "goo/utils/utils"
 require_relative "goo/mixins/sparql_client"
 
+
 module Goo
+
 
   @@resource_options = Set.new([:persistent]).freeze
 
@@ -227,7 +229,7 @@ module Goo
   end
 
   def self.sparql_query_client(name=:main)
-    return @@sparql_backends[name][:query]
+    @@sparql_backends[name][:query]
   end
 
   def self.sparql_update_client(name=:main)
