@@ -9,7 +9,7 @@ gem "rake"
 gem "uuid"
 
 group :test do
-  gem "minitest", '< 5.0'
+  gem "minitest", '< 6.0'
   gem "pry"
   gem 'simplecov'
   gem 'simplecov-cobertura' # for submitting code coverage results to codecov.io
