@@ -185,9 +185,12 @@ module Goo
           attr_name = attr_name.to_sym
           options = options.pop
           options = {} if options.nil?
-          if options[:enforce].nil? or !options[:enforce].include?(:list)
-            options[:enforce] = options[:enforce] ? (options[:enforce] << :no_list) : [:no_list]
-          end
+
+          options[:enforce] ||= []
+
+          set_data_type(options)
+          set_no_list_by_default(options)
+
           @model_settings[:attributes][attr_name] = options
           shape_attribute(attr_name)
           namespace = attribute_namespace(attr_name)
@@ -372,6 +375,20 @@ module Goo
           instance
         end
 
+        private
+
+        def set_no_list_by_default(options)
+          if options[:enforce].nil? or !options[:enforce].include?(:list)
+            options[:enforce] = options[:enforce] ? (options[:enforce] << :no_list) : [:no_list]
+          end
+        end
+        def set_data_type(options)
+          if options[:type]
+            options[:enforce] += Array(options[:type])
+            options[:enforce].uniq!
+            options.delete :type
+          end
+        end
       end
     end
   end
