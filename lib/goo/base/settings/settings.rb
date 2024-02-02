@@ -91,6 +91,16 @@ module Goo
                   select{ |attr,opts| opts[:default] }).keys()
         end
 
+        def attributes_with_update_callbacks
+           (@model_settings[:attributes].
+            select{ |attr,opts| opts[:onUpdate] }).keys
+        end
+
+
+        def update_callbacks(attr)
+          @model_settings[:attributes][attr][:onUpdate]
+        end
+
         def default(attr)
           return @model_settings[:attributes][attr][:default]
         end
