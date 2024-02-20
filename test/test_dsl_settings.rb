@@ -30,6 +30,22 @@ class PersonModel < Goo::Base::Resource
   end
 end
 
+
+class YamlSchemeModelTest < Goo::Base::Resource
+  model :yaml_scheme_model_test, name_with: :name, scheme: 'test/data/yaml_scheme_model_test.yml'
+  attribute :name, enforce: [ :existence, :string, :unique]
+  attribute :last_name, enforce: [ :existence, :string, :unique]
+  attribute :birth_date, enforce: [ :existence, :date_time ]
+  attribute :nationality, enforce: [ :existence, :string ]
+  attribute :created, enforce: [ DateTime ],
+            default: lambda { |record| DateTime.now },
+            namespace: :omv
+  attribute :friends, enforce: [ :existence , PersonModel]
+  attribute :status, enforce: [ :existence, :status ],
+            default: lambda { |record| StatusModel.find("single") }
+end
+
+
 class TestDSLSeeting < MiniTest::Unit::TestCase
   def initialize(*args)
     super(*args)
@@ -141,6 +157,28 @@ class TestDSLSeeting < MiniTest::Unit::TestCase
     #default is on save ... returns`
     person = PersonModel.new
     assert_equal nil, person.created
+  end
+
+
+  def test_model_with_yaml_scheme
+
+    settings = YamlSchemeModelTest.model_settings
+    attributes_settings = settings[:attributes]
+
+
+    assert_equal "test/data/yaml_scheme_model_test.yml", settings[:scheme]
+
+    assert_equal 'Name', attributes_settings[:name][:label]
+    assert_equal 'Person name', attributes_settings[:name][:description]
+    assert_equal %w[test:name test2:name test3:person_name], attributes_settings[:name][:equivalents]
+    assert_equal 'Put the person name as string', attributes_settings[:name][:help]
+    assert_equal 'John', attributes_settings[:name][:example]
+
+
+    assert_equal 'Person nationality', attributes_settings[:nationality][:label]
+    hash = {fr: 'france', us: 'USA'}
+    assert_equal hash, attributes_settings[:nationality][:enforcedValues]
+
   end
 
 end
