@@ -37,11 +37,17 @@ module TestReadOnly
     end
 
     def test_embed_struct
-      skip "not yet"
+
       students = Student.where(enrolled: [university: [name: "Stanford"]])
                 .include(:name)
-                .include(enrolled: [:name, university: [ :address ]])
+                .include(enrolled: [:name, university: [ :address, :name ]])
                 .read_only.all
+
+      assert_equal 3, students.size
+      students.each do |st|
+        assert st.enrolled.any? {|e| e.is_a?(Struct) && e.university.name.eql?('Stanford')}
+      end
+
     end
   end
 end

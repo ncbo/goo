@@ -72,7 +72,6 @@ module TestChunkWrite
     end
 
     def test_reentrant_queries
-      skip "TODO: why does this test fail?"
       ntriples_file_path = "./test/data/nemo_ontology.ntriples"
 
       # Bypass in chunks
@@ -81,8 +80,8 @@ module TestChunkWrite
 
       tput = Thread.new {
         Goo.sparql_data_client.put_triples(ONT_ID_EXTRA, ntriples_file_path, mime_type="application/x-turtle")
+        sleep(1.5)
       }
-      sleep(1.5)
       count_queries = 0
       tq = Thread.new {
         5.times do
@@ -106,8 +105,8 @@ module TestChunkWrite
 
       tdelete = Thread.new {
         Goo.sparql_data_client.delete_graph(ONT_ID_EXTRA)
+        sleep(1.5)
       }
-      sleep(1.5)
       count_queries = 0
       tq = Thread.new {
         5.times do
