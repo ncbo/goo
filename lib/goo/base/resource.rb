@@ -42,9 +42,7 @@ module Goo
         self.class.attributes.each do |attr|
           inst_value = self.instance_variable_get("@#{attr}")
           attr_errors = Goo::Validators::Enforce.enforce(self,attr,inst_value)
-          unless attr_errors.nil?
-            validation_errors[attr] = attr_errors
-          end
+          validation_errors[attr] = attr_errors unless attr_errors.nil?
         end
 
         if !@persistent && validation_errors.length == 0
@@ -70,9 +68,7 @@ module Goo
       end
 
       def id=(new_id)
-        if !@id.nil? and @persistent
-          raise ArgumentError, "The id of a persistent object cannot be changed."
-        end
+        raise ArgumentError, "The id of a persistent object cannot be changed." if !@id.nil? and @persistent
         raise ArgumentError, "ID must be an RDF::URI" unless new_id.kind_of?(RDF::URI)
         @id = new_id
       end
@@ -81,7 +77,7 @@ module Goo
         @id = generate_id if @id.nil?
 
         @id
-          end
+      end
 
       def persistent?
         return @persistent
@@ -136,9 +132,7 @@ module Goo
 
       def delete(*args)
         if self.kind_of?(Goo::Base::Enum)
-          unless args[0] && args[0][:init_enum]
-            raise ArgumentError, "Enums cannot be deleted"
-          end
+          raise ArgumentError, "Enums cannot be deleted" unless args[0] && args[0][:init_enum]
         end
 
         raise ArgumentError, "This object is not persistent and cannot be deleted" if !@persistent
@@ -146,9 +140,7 @@ module Goo
         if !fully_loaded?
           missing = missing_load_attributes
           options_load = { models: [ self ], klass: self.class, :include => missing }
-          if self.class.collection_opts
-            options_load[:collection] = self.collection
-          end
+          options_load[:collection] = self.collection if self.class.collection_opts
           Goo::SPARQL::Queries.model_load(options_load)
         end
 
@@ -164,9 +156,7 @@ module Goo
         end
         @persistent = false
         @modified = true
-        if self.class.inmutable? && self.class.inm_instances
-          self.class.load_inmutable_instances
-        end
+        self.class.load_inmutable_instances if self.class.inmutable? && self.class.inm_instances
         return nil
       end
 
@@ -174,15 +164,11 @@ module Goo
         opts.each do |k|
           if k.kind_of?(Hash)
             k.each do |k2,v|
-              if self.class.handler?(k2)
-                raise ArgumentError, "Unable to bring a method based attr #{k2}"
-              end
+              raise ArgumentError, "Unable to bring a method based attr #{k2}" if self.class.handler?(k2)
               self.instance_variable_set("@#{k2}",nil)
             end
           else
-            if self.class.handler?(k)
-              raise ArgumentError, "Unable to bring a method based attr #{k}"
-            end
+            raise ArgumentError, "Unable to bring a method based attr #{k}" if self.class.handler?(k)
             self.instance_variable_set("@#{k}",nil)
           end
         end
@@ -197,9 +183,7 @@ module Goo
 
       def graph
         opts = self.class.collection_opts
-        if opts.nil?
-          return self.class.uri_type
-        end
+        return self.class.uri_type if opts.nil?
         col = collection
         if col.is_a?Array
           if col.length == 1
@@ -211,79 +195,14 @@ module Goo
         return col ? col.id : nil
       end
 
-      def self.map_attributes(inst,equivalent_predicates=nil)
-        if (inst.kind_of?(Goo::Base::Resource) && inst.unmapped.nil?) ||
-            (!inst.respond_to?(:unmapped) && inst[:unmapped].nil?)
-          raise ArgumentError, "Resource.map_attributes only works for :unmapped instances"
-        end
-        klass = inst.respond_to?(:klass) ? inst[:klass] : inst.class
-        unmapped = inst.respond_to?(:klass) ? inst[:unmapped] : inst.unmapped
-        list_attrs = klass.attributes(:list)
-        unmapped_string_keys = Hash.new
-        unmapped.each do |k,v|
-          unmapped_string_keys[k.to_s] = v
-        end
-        klass.attributes.each do |attr|
-          next if inst.class.collection?(attr) #collection is already there
-          next unless inst.respond_to?(attr)
-          attr_uri = klass.attribute_uri(attr,inst.collection).to_s
-          if unmapped_string_keys.include?(attr_uri.to_s) ||
-              (equivalent_predicates && equivalent_predicates.include?(attr_uri))
-            object = nil
-            if !unmapped_string_keys.include?(attr_uri)
-              equivalent_predicates[attr_uri].each do |eq_attr|
-                if object.nil? and !unmapped_string_keys[eq_attr].nil?
-                  object = unmapped_string_keys[eq_attr].dup
-                else
-                  if object.is_a?Array
-                    if !unmapped_string_keys[eq_attr].nil?
-                      object.concat(unmapped_string_keys[eq_attr])
-                    end
-                  end
-                end
-              end
-              if object.nil?
-                inst.send("#{attr}=",
-                           list_attrs.include?(attr) ? [] : nil, on_load: true)
-                next
-              end
-            else
-              object = unmapped_string_keys[attr_uri]
-            end
-            object = object.map { |o| o.is_a?(RDF::URI) ? o : o.object }
-            if klass.range(attr)
-              object = object.map { |o|
-                o.is_a?(RDF::URI) ? klass.range_object(attr,o) : o }
-            end
-            unless list_attrs.include?(attr)
-              object = object.first
-            end
-            if inst.respond_to?(:klass)
-              inst[attr] = object
-            else
-              inst.send("#{attr}=",object, on_load: true)
-            end
-          else
-            inst.send("#{attr}=",
-                      list_attrs.include?(attr) ? [] : nil, on_load: true)
-            if inst.id.to_s == "http://purl.obolibrary.org/obo/IAO_0000415"
-              if attr == :definition
-               # binding.pry
-              end
-            end
-          end
 
-        end
-      end
 
       def collection
         opts = self.class.collection_opts
         if opts.instance_of?(Symbol)
           if self.class.attributes.include?(opts)
             value = self.send("#{opts}")
-            if value.nil?
-              raise ArgumentError, "Collection `#{opts}` is nil"
-            end
+            raise ArgumentError, "Collection `#{opts}` is nil" if value.nil?
             return value
           else
             raise ArgumentError, "Collection `#{opts}` is not an attribute"
@@ -298,9 +217,7 @@ module Goo
       def save(*opts)
 
         if self.kind_of?(Goo::Base::Enum)
-          unless opts[0] && opts[0][:init_enum]
-            raise ArgumentError, "Enums can only be created on initialization"
-          end
+          raise ArgumentError, "Enums can only be created on initialization" unless opts[0] && opts[0][:init_enum]
         end
         batch_file = nil
         if opts && opts.length > 0
@@ -310,9 +227,7 @@ module Goo
         end
 
         if !batch_file
-          if not modified?
-            return self
-          end
+          return self if not modified?
           raise Goo::Base::NotValidException, "Object is not valid. Check errors." unless valid?
         end
 
@@ -351,9 +266,7 @@ module Goo
 
         @modified_attributes = Set.new
         @persistent = true
-        if self.class.inmutable? && self.class.inm_instances
-          self.class.load_inmutable_instances
-        end
+        self.class.load_inmutable_instances if self.class.inmutable? && self.class.inm_instances
         return self
       end
 
@@ -391,9 +304,7 @@ module Goo
             end
           end
           @unmapped.each do |attr,values|
-            unless all_attr_uris.include?(attr)
-              attr_hash[attr] = values.map { |v| v.to_s }
-            end
+            attr_hash[attr] = values.map { |v| v.to_s } unless all_attr_uris.include?(attr)
           end
         end
         attr_hash[:id] = @id
@@ -413,13 +324,90 @@ module Goo
         return range_object
       end
 
+
+
+      def self.map_attributes(inst,equivalent_predicates=nil)
+        if (inst.kind_of?(Goo::Base::Resource) && inst.unmapped.nil?) ||
+          (!inst.respond_to?(:unmapped) && inst[:unmapped].nil?)
+          raise ArgumentError, "Resource.map_attributes only works for :unmapped instances"
+        end
+        klass = inst.respond_to?(:klass) ? inst[:klass] : inst.class
+        unmapped = inst.respond_to?(:klass) ? inst[:unmapped] : inst.unmapped
+        list_attrs = klass.attributes(:list)
+        unmapped_string_keys = Hash.new
+        unmapped.each do |k,v|
+          unmapped_string_keys[k.to_s] = v
+        end
+        klass.attributes.each do |attr|
+          next if inst.class.collection?(attr) #collection is already there
+          next unless inst.respond_to?(attr)
+          attr_uri = klass.attribute_uri(attr,inst.collection).to_s
+          if unmapped_string_keys.include?(attr_uri.to_s) ||
+            (equivalent_predicates && equivalent_predicates.include?(attr_uri))
+            object = nil
+            if !unmapped_string_keys.include?(attr_uri)
+              equivalent_predicates[attr_uri].each do |eq_attr|
+                if object.nil? and !unmapped_string_keys[eq_attr].nil?
+                  object = unmapped_string_keys[eq_attr].dup
+                else
+                  if object.is_a?Array
+                    object.concat(unmapped_string_keys[eq_attr]) if !unmapped_string_keys[eq_attr].nil?
+                  end
+                end
+              end
+              if object.nil?
+                inst.send("#{attr}=", list_attrs.include?(attr) ? [] : nil, on_load: true)
+                next
+              end
+            else
+              object = unmapped_string_keys[attr_uri]
+            end
+
+            lang_filter = Goo::SPARQL::Solution::LanguageFilter.new
+
+            object = object.map do |o|
+              if o.is_a?(RDF::URI)
+                o
+              else
+                literal = o
+                index, lang_val  = lang_filter.main_lang_filter inst.id.to_s, attr, literal, literal
+                lang_val.to_s if index.eql? :no_lang
+              end
+            end
+
+            object = object.compact
+
+            other_languages_values = lang_filter.other_languages_values
+            other_languages_values = other_languages_values[inst.id.to_s][attr] unless other_languages_values.empty?
+            unless other_languages_values.nil?
+              object = lang_filter.languages_values_to_set(other_languages_values, object)
+            end
+
+            if klass.range(attr)
+              object = object.map { |o|
+                o.is_a?(RDF::URI) ? klass.range_object(attr,o) : o }
+            end
+            object = object.first unless list_attrs.include?(attr)
+            if inst.respond_to?(:klass)
+              inst[attr] = object
+            else
+              inst.send("#{attr}=",object, on_load: true)
+            end
+          else
+            inst.send("#{attr}=",
+                      list_attrs.include?(attr) ? [] : nil, on_load: true)
+            if inst.id.to_s == "http://purl.obolibrary.org/obo/IAO_0000415"
+              if attr == :definition
+                # binding.pry
+              end
+            end
+          end
+
+        end
+      end
       def self.find(id, *options)
-        if !id.instance_of?(RDF::URI) && self.name_with == :id
-          id = RDF::URI.new(id)
-        end
-        unless id.instance_of?(RDF::URI)
-          id = id_from_unique_attribute(name_with(),id)
-        end
+        id = RDF::URI.new(id) if !id.instance_of?(RDF::URI) && self.name_with == :id
+        id = id_from_unique_attribute(name_with(),id) unless id.instance_of?(RDF::URI)
         if self.inmutable? && self.inm_instances && self.inm_instances[id]
           w = Goo::Base::Where.new(self)
           w.instance_variable_set("@result", [self.inm_instances[id]])

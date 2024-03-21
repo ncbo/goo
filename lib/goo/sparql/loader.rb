@@ -93,7 +93,8 @@ module Goo
         expand_equivalent_predicates(select, equivalent_predicates)
         solution_mapper = Goo::SPARQL::SolutionMapper.new aggregate_projections, bnode_extraction,
                                                           embed_struct, incl_embed, klass_struct, models_by_id,
-                                                          predicates_map, unmapped, variables, options
+                                                          predicates_map, unmapped, variables, incl, options
+
         solution_mapper.map_each_solutions(select)
       end
 
@@ -148,10 +149,10 @@ module Goo
           predicates_map = {}
           uniq_p.each do |p|
             i = 0
-            key = ("var_" + p.last_part + i.to_s).to_sym
+            key = ("var_#{p.last_part}#{i.to_s}").to_sym
             while predicates_map.include?(key)
               i += 1
-              key = ("var_" + p.last_part + i.to_s).to_sym
+              key = ("var_#{p.last_part}#{i.to_s}").to_sym
               break if i > 10
             end
             predicates_map[key] = p
