@@ -10,7 +10,7 @@ services:
       retries: 30
 
   solr-ut:
-    image: ontoportal/solr-ut:0.1.0
+    image: ontoportal/solr-ut:0.0.2
     ports:
       - 8983:8983
     healthcheck:
@@ -28,22 +28,23 @@ services:
       - AGRAPH_SUPER_PASSWORD=xyzzy
     shm_size: 1g
     ports:
+      #      - 10035:10035
       - 10000-10035:10000-10035
     volumes:
       - agdata:/agraph/data
       #      - ./agraph/etc:/agraph/etc
     command: >
-        bash -c "/agraph/bin/agraph-control --config /agraph/etc/agraph.cfg start
-        ; agtool repos create ontoportal_test --supersede
-        ; agtool users add anonymous
-        ; agtool users grant anonymous root:ontoportal_test:rw
-        ; tail -f /agraph/data/agraph.log"
-    healthcheck:
-      test: ["CMD-SHELL", "agtool storage-report ontoportal_test || exit 1"]
-      start_period: 30s
-      interval: 10s
-      timeout: 10s
-      retries: 10
+      bash -c "/agraph/bin/agraph-control --config /agraph/etc/agraph.cfg start
+      ; agtool repos create ontoportal_test --supersede
+      ; agtool users add anonymous
+      ; agtool users grant anonymous root:ontoportal_test:rw
+      ; tail -f /agraph/data/agraph.log"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -sf http://127.0.0.1:10035/repositories/ontoportal_test/status | grep -iqE '(^running|^lingering)' || exit 1"]
+    #   start_period: 10s
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
     profiles:
       - ag
 
@@ -58,5 +59,41 @@ services:
       && 4s-httpd -D -s-1 -p 9000 ontoportal_kb"
     profiles:
       - fs
+  virtuoso-ut:
+    image: tenforce/virtuoso:virtuoso7.2.5
+    platform: linux/amd64
+    environment:
+      - SPARQL_UPDATE=true
+    ports:
+      - 1111:1111
+      - 8890:8890
+
+    profiles:
+      - vo
+
+  graphdb:
+    image: ontotext/graphdb:10.3.3
+    platform: linux/amd64
+    privileged: true
+    environment:
+      GDB_HEAP_SIZE: 5G
+      GDB_JAVA_OPTS: >-
+        -Xms5g -Xmx5g
+    ports:
+      - 7200:7200
+      - 7300:7300
+    volumes:
+      - ./test/data/graphdb-repo-config.ttl:/opt/graphdb/dist/configs/templates/data/graphdb-repo-config.ttl
+      - ./test/data/graphdb-test-load.nt:/opt/graphdb/dist/configs/templates/data/graphdb-test-load.nt
+
+    entrypoint: >
+      bash -c " importrdf load -f -c /opt/graphdb/dist/configs/templates/data/graphdb-repo-config.ttl -m parallel /opt/graphdb/dist/configs/templates/data/graphdb-test-load.nt ; graphdb -Ddefault.min.distinct.threshold=3000 "
+    profiles:
+      - gb
+
 volumes:
   agdata:
+
+
+
+

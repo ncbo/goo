@@ -89,18 +89,18 @@ class TestCollection < MiniTest::Unit::TestCase
   def test_inverse_on_collection
     skip "Not supported inverse on collection"
 
-    john = User.find("John").include(:name).first || 
-      User.new(name: "John").save()
-    5.times do |i|
-      Issue.new(description: "issue_#{i}", owner: john).save
-    end
-    
-    binding.pry
-    User.find("John",include: [:issues]).first.issues
-    User.find("John",include: [issues: [:desciption]]).first.issues
+    john = User.find("John").include(:name).first || User.new(name: "John").save
 
     5.times do |i|
-      Issue.find("issue_#{i}", collection: john).delete
+      Issue.find("issue_#{i}").in(john) || Issue.new(description: "issue_#{i}", owner: john).save
+    end
+
+    issues = User.find("John").include(:issues).first.issues
+    assert_equal 5, issues.size
+
+    issues.each do |issue|
+      assert_equal "issue_#{i}", issue.description
+      assert_equal john, issue.collection
     end
   end
 

@@ -6,6 +6,7 @@ gem "activesupport"
 gem "cube-ruby", require: "cube"
 gem "rake"
 gem "uuid"
+gem "request_store"
 
 group :test do
   gem "minitest", '< 5.0'

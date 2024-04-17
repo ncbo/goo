@@ -8,7 +8,7 @@ class Submission < Goo::Base::Resource
 end
 
 class Term < Goo::Base::Resource
-  model :class,
+  model :term,
         namespace: :owl,
         collection: :submission,
         name_with: :id,
@@ -23,22 +23,22 @@ class Term < Goo::Base::Resource
   attribute :parents, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            enforce: [:list, :class]
+            enforce: [:list, :term]
 
   attribute :ancestors, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            enforce: [:list, :class], transitive: true
+            enforce: [:list, :term], transitive: true
 
   attribute :children, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            inverse: { on: :class , attribute: :parents }
+            inverse: { on: :term , attribute: :parents }
 
   attribute :descendants, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            inverse: { on: :class , attribute: :parents }, 
+            inverse: { on: :term , attribute: :parents },
             transitive: true
 
   def self.tree_property(*args)
@@ -76,12 +76,13 @@ class TestModelComplex < MiniTest::Unit::TestCase
     if GooTest.count_pattern("?s ?p ?o") > 100000
       raise Exception, "Too many triples in KB, does not seem right to run tests"
     end
-    Goo.sparql_update_client.update("DELETE {?s ?p ?o } WHERE { ?s ?p ?o }")
+
+    Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
 
   def self.after_suite
     Goo.use_cache = false
-    Goo.sparql_update_client.update("DELETE {?s ?p ?o } WHERE { ?s ?p ?o }")
+    Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
 
   def test_method_handler
@@ -320,7 +321,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     # the model declaration above.  See the explanation in
     # https://github.com/ncbo/goo/commit/0e09816b121750b3bb875a5c24cb79865287fcf4#commitcomment-90304626
     Goo.add_model(:class, Term)
-   
+
     submission = Submission.new(name: "submission1")
     unless submission.exist?
       submission.save

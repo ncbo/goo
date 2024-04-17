@@ -1,5 +1,5 @@
-require_relative "test_case"
-require_relative "models"
+require_relative 'test_case'
+require_relative 'models'
 
 class TestWhere < MiniTest::Unit::TestCase
   def initialize(*args)
@@ -101,10 +101,10 @@ class TestWhere < MiniTest::Unit::TestCase
     assert_equal 1, programs.length
     assert programs.first.id.to_s["Southampton/BioInformatics"]
 
-    # any program from universities in the US
-    programs = Program.where(university: [address: [country: "US"]]).include([:name]).all
-    assert_equal 3, programs.length
-    assert_equal ["BioInformatics", "CompSci", "Medicine"], programs.map { |p| p.name }.sort
+    #any program from universities in the US
+    programs = Program.where(university: [ address: [ country: "US" ]]).include([:name]).all
+    assert programs.length == 3
+    assert programs.map { |p| p.name }.sort == ["BioInformatics", "CompSci", "Medicine"]
   end
 
   def test_where_2levels_inverse
@@ -117,15 +117,15 @@ class TestWhere < MiniTest::Unit::TestCase
 
     # equivalent
     unis = University.where(address: [country: "US"])
-      .and(programs: [category: [code: "Biology"]]).all
-    assert_equal 1, unis.length
-    assert_equal "http://goo.org/default/university/Stanford", unis.first.id.to_s
+                     .and(programs: [category: [code: "Biology"]]).all
+    assert unis.length == 1
+    assert unis.first.id.to_s == "http://goo.org/default/university/Stanford"
   end
 
   def test_embed_include
     programs = Program.where.include(:name)
-      .include(university: [:name])
-      .include(category: [:code]).all
+                      .include(university: [:name])
+                      .include(category: [:code]).all
 
     assert_equal 9, programs.length
     programs.each do |p|
@@ -176,8 +176,8 @@ class TestWhere < MiniTest::Unit::TestCase
     # two levels
     unis = University.where.all
     unis_return = University.where.models(unis)
-      .include(programs: [:name, students: [:name]]).to_a
-    assert_equal unis.object_id, unis_return.object_id
+                            .include(programs: [:name, students: [:name]]).to_a
+    assert unis_return.object_id == unis.object_id
     return_object_id = unis.map { |x| x.object_id }.uniq.sort
     unis_object_id = unis.map { |x| x.object_id }.uniq.sort
     assert_equal unis_object_id, return_object_id
@@ -256,6 +256,39 @@ class TestWhere < MiniTest::Unit::TestCase
     end
   end
 
+  def test_fetch_remaining
+    students = Student.where(enrolled:RDF::URI.new("http://example.org/program/Stanford/BioInformatics"))
+                      .include(:name, :birth_date, enrolled: [:name]).all
+
+
+    s = students.select { |x| x.name['Daniel'] }.first
+    refute_nil s
+    assert_equal 2, s.enrolled.size
+  end
+
+  def test_paging_with_filter_order
+    skip('pagination with filter and order does not work in 4s') if Goo.backend_4s?
+
+    f = Goo::Filter.new(:birth_date) > DateTime.parse('1978-01-03')
+    total_count = Student.where.filter(f).count
+    page_1 = Student.where.include(:name, :birth_date).page(1, total_count - 1).filter(f).order_by(name: :asc).to_a
+    refute_empty page_1
+    assert page_1.next?
+    page_2 = Student.where.include(:name, :birth_date).page(page_1.next_page, total_count - 1).filter(f).order_by(name: :asc).to_a
+
+
+    refute_empty page_2
+    assert_equal total_count, page_1.size + page_2.size
+  end
+
+  def test_two_level_include
+    programs = Program.where.include(:name).all
+    r = Program.where.models(programs).include(students: [:name]).all
+    r.each do |p|
+      refute_nil p.students
+    end
+  end
+
   def test_unique_object_references
     # NOTE: unique references does not apply across different slice loading
     return if Goo.slice_loading_size < 100
@@ -295,9 +328,9 @@ class TestWhere < MiniTest::Unit::TestCase
       ["Computer Science", "Electronics", "Engineering", "Mathematics"]],
       daniel.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
     john = students[1]
-    assert_equal ["Computer Science", "Electronics", "Engineering", "Mathematics"], john.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
+    assert_equal ["Computer Science", "Electronics", "Engineering", "Mathematics"], john.enrolled.map { |p| p.category.map { |c| c.code }.sort }.flatten.sort
     susan = students.last
-    assert_equal ["Biology", "Computer Science", "Medicine"], susan.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
+    assert_equal ["Biology", "Computer Science", "Medicine"], susan.enrolled.map { |p| p.category.map { |c| c.code }.sort }.flatten.sort
 
     categories = []
     students.each do |st|
@@ -311,8 +344,8 @@ class TestWhere < MiniTest::Unit::TestCase
   def test_complex_include
     # Students in a university by name
     students = Student.where(enrolled: [university: [name: "Stanford"]])
-      .include(:name)
-      .include(enrolled: [:name, university: [:address]]).all
+                      .include(:name)
+                .include(enrolled: [:name, university: [ :address ]]).all
 
     assert_equal ["Daniel", "John", "Susan"], students.map { |x| x.name }.sort
     students.each do |s|
@@ -379,24 +412,24 @@ class TestWhere < MiniTest::Unit::TestCase
 
   def test_where_direct_attributes
     st = Student.where(name: "Daniel")
-      .or(name: "Louis")
-      .or(name: "Lee")
-      .or(name: "John").all
-    assert_equal 4, st.length
+                .or(name: "Louis")
+                .or(name: "Lee")
+                .or(name: "John").all
+    assert st.length == 4
 
     st = Student.where(name: "Daniel")
-      .and(name: "John").all
-    assert_equal 0, st.length
+                .and(name: "John").all
+    assert st.length == 0
 
     st = Student.where(name: "Daniel")
-      .and(birth_date: DateTime.parse("1978-01-04")).all
-    assert_equal 1, st.length
+                .and(birth_date: DateTime.parse('1978-01-04')).all
+    assert st.length == 1
     assert st.first.id.to_s["Daniel"]
 
     st = Student.where(name: "Daniel")
-      .or(name: "Louis")
-      .and(birth_date: DateTime.parse("1978-01-04"))
-    assert_equal 1, st.length
+                .or(name: "Louis")
+                .and(birth_date: DateTime.parse('1978-01-04'))
+    assert st.length == 1
     assert st.first.id.to_s["Daniel"]
   end
 
@@ -428,11 +461,11 @@ class TestWhere < MiniTest::Unit::TestCase
     assert_equal 2, st.length
     refute_equal st[1].name, st.first.name
     st.each do |p|
-      assert(p.name == "Susan" || p.name == "Daniel")
-      assert_kind_of Array, p.enrolled
+      assert (p.name == "Susan" || p.name == "Daniel")
+      assert Array, p.enrolled
       assert (p.name == "Susan" && p.enrolled.length == 1) ||
-        (p.name == "Daniel" && p.enrolled.length == 2)
-      assert_kind_of String, p.enrolled.first.university.address.first.country
+               (p.name == "Daniel" && p.enrolled.length == 2)
+      assert String, p.enrolled.first.university.address.first.country
     end
   end
 
@@ -442,29 +475,32 @@ class TestWhere < MiniTest::Unit::TestCase
 
     f = Goo::Filter.new(:birth_date) > DateTime.parse("1978-01-03")
     st = Student.where.filter(f).all
-    assert_equal ["http://goo.org/default/student/Daniel",
-      "http://goo.org/default/student/Lee",
-      "http://goo.org/default/student/Louis",
-      "http://goo.org/default/student/Robert"], st.map { |x| x.id.to_s }.sort
+    assert st.map { |x| x.id.to_s }.sort == ["http://goo.org/default/student/Daniel",
+                                             "http://goo.org/default/student/Lee",
+                                             "http://goo.org/default/student/Louis",
+                                             "http://goo.org/default/student/Robert"]
 
     f = (Goo::Filter.new(:birth_date) <= DateTime.parse("1978-01-01"))
       .or(Goo::Filter.new(:birth_date) >= DateTime.parse("1978-01-07"))
     st = Student.where.filter(f).all
-    assert_equal ["http://goo.org/default/student/Robert",
-      "http://goo.org/default/student/Susan"], st.map { |x| x.id.to_s }.sort
+    assert st.map { |x| x.id.to_s }.sort == [
+      "http://goo.org/default/student/Robert",
+      "http://goo.org/default/student/Susan"]
 
     f = (Goo::Filter.new(:birth_date) <= DateTime.parse("1978-01-01"))
       .or(Goo::Filter.new(:name) == "Daniel")
     st = Student.where.filter(f).all
-    assert_equal ["http://goo.org/default/student/Daniel",
-      "http://goo.org/default/student/Susan"], st.map { |x| x.id.to_s }.sort
+    assert st.map { |x| x.id.to_s }.sort == [
+      "http://goo.org/default/student/Daniel",
+      "http://goo.org/default/student/Susan"]
 
     f = (Goo::Filter.new(:birth_date) > DateTime.parse("1978-01-02"))
       .and(Goo::Filter.new(:birth_date) < DateTime.parse("1978-01-06"))
     st = Student.where.filter(f).all
-    assert_equal ["http://goo.org/default/student/Daniel",
+    assert st.map { |x| x.id.to_s }.sort == [
+      "http://goo.org/default/student/Daniel",
       "http://goo.org/default/student/Louis",
-      "http://goo.org/default/student/Tim"], st.map { |x| x.id.to_s }.sort
+      "http://goo.org/default/student/Tim"]
 
     f = Goo::Filter.new(enrolled: [:credits]) > 8
     st = Student.where.filter(f).all
@@ -473,20 +509,20 @@ class TestWhere < MiniTest::Unit::TestCase
     # students without awards
     f = Goo::Filter.new(:awards).unbound
     st = Student.where.filter(f)
-      .include(:name)
-      .all
-    assert_equal ["John", "Tim", "Louis", "Lee", "Robert"].sort, st.map { |x| x.name }.sort
+                .include(:name)
+                .all
+    assert st.map { |x| x.name }.sort == ["John","Tim","Louis","Lee","Robert"].sort
 
     # unbound on some non existing property
     f = Goo::Filter.new(enrolled: [:xxx]).unbound
     st = Student.where.filter(f).all
-    assert_equal 7, st.length
+    assert st.length == 7
 
     f = Goo::Filter.new(:name).regex("n") # will find all students that contains "n" in there name
     st = Student.where.filter(f).include(:name).all # return "John" , "Daniel"  and  "Susan"
 
     assert_equal 3, st.length
-    assert_equal ["John", "Daniel", "Susan"].sort, st.map { |x| x.name }.sort
+    assert_equal ["John","Daniel","Susan"].sort, st.map { |x| x.name }.sort
   end
 
   def test_aggregated
@@ -509,7 +545,7 @@ class TestWhere < MiniTest::Unit::TestCase
     sts = Student.where.include(:name).aggregate(:count, :enrolled).all
     sts.each do |st|
       assert (st.name == "Daniel" && st.aggregates.first.value == 2) ||
-        st.aggregates.first.value == 1
+               st.aggregates.first.value == 1
     end
 
     # students enrolled in more than 1 program and get the programs name
@@ -578,4 +614,16 @@ class TestWhere < MiniTest::Unit::TestCase
       end
     end
   end
+
+  def test_complex_order_by
+    u = University.where.include(address: [:country]).order_by(address: {country: :asc}).all
+    countries = u.map {|x| x.address.map{|a| a.country}}.flatten
+    assert_equal countries.sort, countries
+
+
+    u = University.where.include(address: [:country]).order_by(address: {country: :desc}).all
+    countries = u.map {|x| x.address.map{|a| a.country}}.flatten
+    assert_equal countries.sort{|a,b| b<=>a }, countries
+  end
+
 end

@@ -66,6 +66,17 @@ module Goo
           errors_by_opt.length > 0 ? errors_by_opt : nil
         end
 
+        def enforce_callback(inst, attr)
+          callbacks = Array(inst.class.update_callbacks(attr))
+          callbacks.each do |proc|
+            if instance_proc?(inst, proc)
+              call_proc(inst.method(proc), inst, attr)
+            elsif proc.is_a?(Proc)
+              call_proc(proc, inst, attr)
+            end
+          end
+        end
+
         private
 
         def object_type(opt)
@@ -116,6 +127,10 @@ module Goo
 
       def self.enforce(inst,attr,value)
         EnforceInstance.new.enforce(inst,attr,value)
+      end
+
+      def self.enforce_callbacks(inst, attr)
+        EnforceInstance.new.enforce_callback(inst, attr)
       end
     end
   end

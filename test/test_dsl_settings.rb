@@ -1,5 +1,22 @@
 require_relative 'test_case'
 
+
+class NewPersonModel < Goo::Base::Resource
+  model :person_model_new, name_with: :name
+  attribute :name, type: :string, enforce: [ :existence, :unique]
+  attribute :multiple_values, type: [:list, :integer], enforce: [ :existence, :min_3, :max_5 ]
+  attribute :one_number, type: :integer,enforce: [ :existence ] #by default not a list
+  attribute :birth_date, type: :date_time, enforce: [ :existence ]
+
+  attribute :created, type: DateTime ,
+            default: lambda { |record| DateTime.now },
+            namespace: :omv
+
+  attribute :friends, type: NewPersonModel , enforce: [ :existence]
+  attribute :status, type: :status, enforce: [ :existence],
+            default: lambda { |record| StatusModel.find("single") }
+end
+
 class StatusModel < Goo::Base::Resource
   model :status_model, name_with: :name
   attribute :description, enforce: [ :existence, :unique]
@@ -30,13 +47,46 @@ class PersonModel < Goo::Base::Resource
   end
 end
 
+
+class YamlSchemeModelTest < Goo::Base::Resource
+  model :yaml_scheme_model_test, name_with: :name, scheme: 'test/data/yaml_scheme_model_test.yml'
+  attribute :name, enforce: [ :existence, :string, :unique]
+  attribute :last_name, enforce: [ :existence, :string, :unique]
+  attribute :birth_date, enforce: [ :existence, :date_time ]
+  attribute :nationality, enforce: [ :existence, :string ]
+  attribute :created, enforce: [ DateTime ],
+            default: lambda { |record| DateTime.now },
+            namespace: :omv
+  attribute :friends, enforce: [ :existence , PersonModel]
+  attribute :status, enforce: [ :existence, :status ],
+            default: lambda { |record| StatusModel.find("single") }
+end
+
+
 class TestDSLSeeting < MiniTest::Unit::TestCase
   def initialize(*args)
     super(*args)
   end
 
+  def test_data_type_dsl
+    _test_attributes_enforce NewPersonModel
+  end
+
   def test_attributes_set_get
+    _test_attributes_enforce PersonModel
+  end
+
+  def test_default_value
+    #default is on save ... returns`
     person = PersonModel.new
+    assert_equal nil, person.created
+  end
+
+
+  private
+  def _test_attributes_enforce(model)
+    person = model.new
+    model_key_name = model.model_name
     assert(person.respond_to? :id)
     assert(person.kind_of? Goo::Base::Resource)
     assert !person.valid?
@@ -65,7 +115,7 @@ class TestDSLSeeting < MiniTest::Unit::TestCase
     assert !person.valid?
     assert !person.errors[:birth_date]
 
-    person.birth_date = "X" 
+    person.birth_date = "X"
     assert !person.valid?
     assert person.errors[:birth_date][:date_time]
 
@@ -101,17 +151,17 @@ class TestDSLSeeting < MiniTest::Unit::TestCase
       person.multiple_values << 99
     end
 
-    friends = [PersonModel.new , PersonModel.new]
+    friends = [model.new , model.new]
     person.friends = friends
     assert !person.valid?
     assert person.errors[:friends][:no_list]
-    person.friends = PersonModel.new
+    person.friends = model.new
     assert !person.valid?
-    assert person.errors[:friends][:person_model]
+    assert person.errors[:friends][model_key_name]
     person.friends = "some one"
     assert !person.valid?
-    assert person.errors[:friends][:person_model]
-    person.friends = PersonModel.new
+    assert person.errors[:friends][model_key_name]
+    person.friends = model.new
 
     person.one_number = 99
     assert !person.valid?
@@ -125,7 +175,7 @@ class TestDSLSeeting < MiniTest::Unit::TestCase
     assert !person.valid?
     assert person.errors[:one_number][:no_list]
 
-    person.one_number = 99 
+    person.one_number = 99
     assert_equal(99, person.one_number)
     assert !person.valid?
     assert !person.errors[:one_number]
@@ -137,10 +187,25 @@ class TestDSLSeeting < MiniTest::Unit::TestCase
     assert !person.valid?
   end
 
-  def test_default_value
-    #default is on save ... returns`
-    person = PersonModel.new
-    assert_equal nil, person.created
+  def test_model_with_yaml_scheme
+
+    settings = YamlSchemeModelTest.model_settings
+    attributes_settings = settings[:attributes]
+
+
+    assert_equal "test/data/yaml_scheme_model_test.yml", settings[:scheme]
+
+    assert_equal 'Name', attributes_settings[:name][:label]
+    assert_equal 'Person name', attributes_settings[:name][:description]
+    assert_equal %w[test:name test2:name test3:person_name], attributes_settings[:name][:equivalents]
+    assert_equal 'Put the person name as string', attributes_settings[:name][:help]
+    assert_equal 'John', attributes_settings[:name][:example]
+
+
+    assert_equal 'Person nationality', attributes_settings[:nationality][:label]
+    hash = {fr: 'france', us: 'USA'}
+    assert_equal hash, attributes_settings[:nationality][:enforcedValues]
+
   end
 
 end

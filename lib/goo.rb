@@ -30,6 +30,11 @@ module Goo
 
   @@resource_options = Set.new([:persistent]).freeze
 
+  # Define the languages from which the properties values will be taken
+  # It choose the first language that match otherwise return all the values
+  @@main_languages = %w[en]
+  @@requested_language = nil
+
   @@configure_flag = false
   @@sparql_backends = {}
   @@model_by_name = {}
@@ -46,6 +51,52 @@ module Goo
   @@use_cache = false
 
   @@slice_loading_size = 500
+
+
+
+  def self.log_debug_file(str)
+    debug_file = "./queries.txt"
+    File.write(debug_file, str.to_s + "\n", mode: 'a')
+  end
+
+
+
+  def backend_4s?
+    sparql_backend_name.downcase.eql?("4store")
+  end
+
+  def backend_ag?
+    sparql_backend_name.downcase.eql?("allegrograph")
+  end
+
+  def backend_gb?
+    sparql_backend_name.downcase.eql?("graphdb")
+  end
+
+  def backend_vo?
+    sparql_backend_name.downcase.eql?("virtuoso")
+  end
+
+
+  def self.main_languages
+    @@main_languages
+  end
+  def self.main_languages=(lang)
+    @@main_languages = lang
+  end
+
+  def self.requested_language
+    @@requested_language
+  end
+
+  def self.requested_language=(lang)
+    @@requested_language = lang
+  end
+
+  def self.language_includes(lang)
+    lang_str = lang.to_s
+    main_languages.index { |l| lang_str.downcase.eql?(l) || lang_str.upcase.eql?(l)}
+  end
 
   def self.add_namespace(shortcut, namespace,default=false)
     if !(namespace.instance_of? RDF::Vocabulary)

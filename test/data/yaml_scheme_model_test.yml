@@ -1,0 +1,11 @@
+name:
+  label: 'Name'
+  description: 'Person name'
+  equivalents: ['test:name' , 'test2:name', 'test3:person_name']
+  help: 'Put the person name as string'
+  example: 'John'
+nationality:
+  label: 'Person nationality'
+  enforcedValues: {'fr': 'france', 'us': 'USA'}
+
+

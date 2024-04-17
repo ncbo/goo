@@ -6,6 +6,7 @@ module Goo
       AGGREGATE_PATTERN = Struct.new(:pattern,:aggregate)
 
       attr_accessor :where_options_load
+      include Goo::SPARQL::Processor
 
       def initialize(klass,*match_patterns)
         if Goo.queries_debug? && Thread.current[:ncbo_debug].nil?
@@ -122,113 +123,7 @@ module Goo
       end
 
       def process_query(count=false)
-        if Goo.queries_debug? &&  Thread.current[:ncbo_debug]
-          tstart = Time.now
-          query_resp = process_query_intl(count=count)
-          (Thread.current[:ncbo_debug][:goo_process_query] ||= []) << (Time.now - tstart)
-          return query_resp
-        end
-        return process_query_intl(count=count)
-      end
-
-      def process_query_intl(count=false)
-        if @models == []
-          @result = []
-          return @result
-        end
-
-        @include << @include_embed if @include_embed.length > 0
-
-        @predicates = unmmaped_predicates()
-        @equivalent_predicates = retrieve_equivalent_predicates()
-
-        options_load = { models: @models, include: @include, ids: @ids,
-                         graph_match: @pattern, klass: @klass,
-                         filters: @filters, order_by: @order_by ,
-                         read_only: @read_only, rules: @rules,
-                         predicates: @predicates,
-                         no_graphs: @no_graphs,
-                         equivalent_predicates: @equivalent_predicates }
-
-        options_load.merge!(@where_options_load) if @where_options_load
-        if !@klass.collection_opts.nil? and !options_load.include?(:collection)
-          raise ArgumentError, "Collection needed call `#{@klass.name}`"
-        end
-
-        ids = nil
-        if @index_key
-          raise ArgumentError, "Redis is not configured" unless Goo.redis_client
-          rclient = Goo.redis_client
-          cache_key = cache_key_for_index(@index_key)
-          raise ArgumentError, "Index not found" unless rclient.exists(cache_key)
-          if @page_i
-            if !@count
-              @count = rclient.llen(cache_key)
-            end
-            rstart = (@page_i -1) * @page_size
-            rstop = (rstart + @page_size) -1
-            ids = rclient.lrange(cache_key,rstart,rstop)
-          else
-            ids = rclient.lrange(cache_key,0,-1)
-          end
-          ids = ids.map { |i| RDF::URI.new(i) }
-        end
-
-        if @page_i && !@index_key
-          page_options = options_load.dup
-          page_options.delete(:include)
-          page_options[:include_pagination] = @include
-          if not @pre_count.nil?
-            @count = @pre_count
-          else
-            if !@count && @do_count
-              page_options[:count] = :count
-              @count = Goo::SPARQL::Queries.model_load(page_options).to_i
-            end
-          end
-          page_options.delete :count
-          page_options[:query_options] = @query_options
-          page_options[:page] = { page_i: @page_i, page_size: @page_size }
-          models_by_id = Goo::SPARQL::Queries.model_load(page_options)
-          options_load[:models] = models_by_id.values
-
-          #models give the constraint
-          options_load.delete :graph_match
-        elsif count
-          count_options = options_load.dup
-          count_options.delete(:include)
-          count_options[:count] = :count
-          return Goo::SPARQL::Queries.model_load(count_options).to_i
-        end
-
-        if @indexing
-          #do not care about include values
-          @result = Goo::Base::Page.new(@page_i,@page_size,@count,models_by_id.values)
-          return @result
-        end
-
-        options_load[:ids] = ids if ids
-        models_by_id = {}
-        if (@page_i && options_load[:models].length > 0) ||
-            (!@page_i && (@count.nil? || @count > 0))
-          models_by_id = Goo::SPARQL::Queries.model_load(options_load)
-          if @aggregate
-            if models_by_id.length > 0
-              options_load_agg = { models: models_by_id.values, klass: @klass,
-                             filters: @filters, read_only: @read_only,
-                             aggregate: @aggregate, rules: @rules }
-
-              options_load_agg.merge!(@where_options_load) if @where_options_load
-              Goo::SPARQL::Queries.model_load(options_load_agg)
-            end
-          end
-        end
-        unless @page_i
-          @result = @models ? @models : models_by_id.values
-        else
-          @result = Goo::Base::Page.new(@page_i,@page_size,@count,models_by_id.values)
-        end
-        @result
+        process_query_call(count = count)
       end
 
       def disable_rules

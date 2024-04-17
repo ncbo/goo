@@ -12,13 +12,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['2.7', '3.0']
-        triplestore: ['fs', 'ag']
+        goo-slice: [ '20', '100', '500' ]
+        ruby-version: [ '2.7', '3.0' ]
+        triplestore: [ 'fs', 'ag', 'vo', 'gb' ]
 
     steps:
     - uses: actions/checkout@v4
     - name: Install Dependencies
-      run: sudo apt-get -y install raptor2-utils
+      run: sudo apt-get update && sudo apt-get -y install raptor2-utils
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
@@ -27,8 +28,10 @@ jobs:
     - name: Add config file
       # tempoaray workaround for the config.rb file requirement
       run:  echo 'Goo.config do |config| end' > config/config.rb
+    - name: List directory contents
+      run: ls -R ./test/data
     - name: Run tests
-      run: bundle exec rake test:docker:${{ matrix.triplestore }} TESTOPTS="-v"
+      run: GOO_SLICES=${{ matrix.goo-slice }} bundle exec rake test:docker:${{ matrix.triplestore }} TESTOPTS="-v"
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:

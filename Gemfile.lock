@@ -84,6 +84,8 @@ GEM
       redis-client (>= 0.22.0)
     redis-client (0.22.1)
       connection_pool
+    request_store (1.6.0)
+      rack (>= 1.4)
     rest-client (2.1.0)
       http-accept (>= 1.7.0, < 2.0)
       http-cookie (>= 1.0.2, < 2.0)
@@ -121,6 +123,8 @@ GEM
 
 PLATFORMS
   x86_64-darwin-18
+  x86_64-darwin-23
+  x86_64-linux
 
 DEPENDENCIES
   activesupport
@@ -131,6 +135,7 @@ DEPENDENCIES
   rack-accept
   rack-post-body-to-params
   rake
+  request_store
   simplecov
   simplecov-cobertura
   sinatra
@@ -139,4 +144,4 @@ DEPENDENCIES
   uuid
 
 BUNDLED WITH
-   2.3.15
+   2.4.22

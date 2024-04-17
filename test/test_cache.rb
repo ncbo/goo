@@ -100,7 +100,7 @@ class TestCache < MiniTest::Unit::TestCase
     data = "<http://goo.org/default/student/Tim> " +
            "<http://goo.org/default/enrolled> " +
            "<http://example.org/program/Stanford/BioInformatics> ."
-    
+
     Goo.sparql_data_client.append_triples(Student.type_uri,data,"application/x-turtle")
     programs = Program.where(name: "BioInformatics", university: [ name: "Stanford"  ])
                           .include(:students).all
@@ -128,11 +128,16 @@ class TestCache < MiniTest::Unit::TestCase
     def x.response *args
       raise Exception, "Should be a successful hit"
     end
-    programs = Program.where(name: "BioInformatics", university: [ name: "Stanford"  ])
-                        .include(:students).all
+    begin
+      programs = Program.where(name: "BioInformatics", university: [ name: "Stanford"  ])
+                          .include(:students).all
+    rescue  Exception
+      assert false, "should be cached"
+    end
+
     #from cache
-    assert programs.length == 1
-    assert_raises Exception do 
+    assert_equal 1, programs.length
+    assert_raises Exception do
       #different query
       programs = Program.where(name: "BioInformatics X", university: [ name: "Stanford"  ]).all
     end

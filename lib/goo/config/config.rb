@@ -25,7 +25,7 @@ module Goo
     @settings.redis_port          ||= ENV['REDIS_PORT'] || 6379
     @settings.bioportal_namespace ||= ENV['BIOPORTAL_NAMESPACE'] || 'http://data.bioontology.org/'
     @settings.queries_debug       ||= ENV['QUERIES_DEBUG'] || false
-
+    @settings.slice_loading_size  ||= ENV['GOO_SLICES'] || 500
     puts "(GOO) >> Using RDF store (#{@settings.goo_backend_name}) #{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}"
     puts "(GOO) >> Using term search server at #{@settings.search_server_url}"
     puts "(GOO) >> Using Redis instance at #{@settings.redis_host}:#{@settings.redis_port}"

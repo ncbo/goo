@@ -42,9 +42,8 @@ class GooTest
     end
 
     def _run_suite(suite, type)
-      %[1,5,10,20]
       ret = []
-      [1,5,10,20].each do |slice_size|
+      [Goo.slice_loading_size].each do |slice_size|
         puts "\nrunning test with slice_loading_size=#{slice_size}"
         Goo.slice_loading_size=slice_size
         begin

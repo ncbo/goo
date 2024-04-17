@@ -1,6 +1,6 @@
 require_relative 'test_case'
 
-module TestSChemaless
+module TestSchemaless
 
   ONT_ID = "http:://example.org/data/nemo"
 
@@ -116,6 +116,9 @@ module TestSChemaless
       where = Klass.find(cognition_term).in(ontology).include(:unmapped)
       k =  where.first
       enter = 0
+
+      assert k.unmapped.keys.include?(Goo.vocabulary(:nemo)[:definition])
+
       k.unmapped.each do |p,vals|
         if p.to_s == Goo.vocabulary(:nemo)[:synonym].to_s
           enter += 1
@@ -183,7 +186,19 @@ module TestSChemaless
       end
 
     end
+    
+    def test_all_pages_loop
+      ontology = Ontology.find(RDF::URI.new(ONT_ID)).first
+      page = 1
+      count = 0
+      begin
+        paging = Klass.in(ontology).page(page,50).all
+        count += paging.size
+        page = paging.next_page if paging.next?
+      end while(paging.next?)
 
+      assert_equal count, Klass.in(ontology).count
+    end
     def test_page_reuse_predicates
       ontology = Ontology.find(RDF::URI.new(ONT_ID)).first
       paging = Klass.in(ontology).include(:unmapped).page(1,100)
@@ -206,7 +221,7 @@ module TestSChemaless
           all_ids << k.id
         end
         total += page.length
-        paging.page(page.next_page) if page.next?
+        paging.page(page.next_page, 100) if page.next?
         assert page.aggregate == 1713
       end while(page.next?)
       assert all_ids.length == all_ids.uniq.length

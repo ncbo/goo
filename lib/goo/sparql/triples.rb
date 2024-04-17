@@ -67,16 +67,6 @@ module Goo
         unless model.persistent?
           graph_insert << [subject, RDF.type, model.class.uri_type(model.collection)]
         end
-        #set default values before saving
-        if not model.persistent?
-          model.class.attributes_with_defaults.each do |attr|
-            value = model.send("#{attr}")
-            if value.nil?
-              value = model.class.default(attr).call(model)
-              model.send("#{attr}=",value)
-            end
-          end
-        end
 
         model.modified_attributes.each do |attr|
           next if model.class.collection?(attr)
