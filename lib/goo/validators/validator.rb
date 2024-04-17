@@ -91,7 +91,11 @@ module Goo
         end
 
         def empty_to_s?(object)
-          object && object.to_s&.strip.empty?
+          begin
+            object && object.to_s&.strip.empty?
+          rescue
+            return false
+          end
         end
 
         def empty_array?(array)

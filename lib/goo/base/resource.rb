@@ -42,9 +42,7 @@ module Goo
         self.class.attributes.each do |attr|
           inst_value = self.instance_variable_get("@#{attr}")
           attr_errors = Goo::Validators::Enforce.enforce(self,attr,inst_value)
-          unless attr_errors.nil?
-            validation_errors[attr] = attr_errors
-          end
+          validation_errors[attr] = attr_errors unless attr_errors.nil?
         end
 
         if !@persistent && validation_errors.length == 0
@@ -70,9 +68,7 @@ module Goo
       end
 
       def id=(new_id)
-        if !@id.nil? and @persistent
-          raise ArgumentError, "The id of a persistent object cannot be changed."
-        end
+        raise ArgumentError, "The id of a persistent object cannot be changed." if !@id.nil? and @persistent
         raise ArgumentError, "ID must be an RDF::URI" unless new_id.kind_of?(RDF::URI)
         @id = new_id
       end
@@ -128,6 +124,7 @@ module Goo
 
       def unmmaped_to_array
         cpy = {}
+        
         @unmapped.each do |attr,v|
           cpy[attr] = v.to_a
         end
@@ -136,9 +133,7 @@ module Goo
 
       def delete(*args)
         if self.kind_of?(Goo::Base::Enum)
-          unless args[0] && args[0][:init_enum]
-            raise ArgumentError, "Enums cannot be deleted"
-          end
+          raise ArgumentError, "Enums cannot be deleted" unless args[0] && args[0][:init_enum]
         end
 
         raise ArgumentError, "This object is not persistent and cannot be deleted" if !@persistent
@@ -146,9 +141,7 @@ module Goo
         if !fully_loaded?
           missing = missing_load_attributes
           options_load = { models: [ self ], klass: self.class, :include => missing }
-          if self.class.collection_opts
-            options_load[:collection] = self.collection
-          end
+          options_load[:collection] = self.collection if self.class.collection_opts
           Goo::SPARQL::Queries.model_load(options_load)
         end
 
@@ -164,9 +157,7 @@ module Goo
         end
         @persistent = false
         @modified = true
-        if self.class.inmutable? && self.class.inm_instances
-          self.class.load_inmutable_instances
-        end
+        self.class.load_inmutable_instances if self.class.inmutable? && self.class.inm_instances
         return nil
       end
 
@@ -174,15 +165,11 @@ module Goo
         opts.each do |k|
           if k.kind_of?(Hash)
             k.each do |k2,v|
-              if self.class.handler?(k2)
-                raise ArgumentError, "Unable to bring a method based attr #{k2}"
-              end
+              raise ArgumentError, "Unable to bring a method based attr #{k2}" if self.class.handler?(k2)
               self.instance_variable_set("@#{k2}",nil)
             end
           else
-            if self.class.handler?(k)
-              raise ArgumentError, "Unable to bring a method based attr #{k}"
-            end
+            raise ArgumentError, "Unable to bring a method based attr #{k}" if self.class.handler?(k)
             self.instance_variable_set("@#{k}",nil)
           end
         end
@@ -197,9 +184,7 @@ module Goo
 
       def graph
         opts = self.class.collection_opts
-        if opts.nil?
-          return self.class.uri_type
-        end
+        return self.class.uri_type if opts.nil?
         col = collection
         if col.is_a?Array
           if col.length == 1
@@ -281,9 +266,7 @@ module Goo
         if opts.instance_of?(Symbol)
           if self.class.attributes.include?(opts)
             value = self.send("#{opts}")
-            if value.nil?
-              raise ArgumentError, "Collection `#{opts}` is nil"
-            end
+            raise ArgumentError, "Collection `#{opts}` is nil" if value.nil?
             return value
           else
             raise ArgumentError, "Collection `#{opts}` is not an attribute"
@@ -298,26 +281,45 @@ module Goo
       def save(*opts)
 
         if self.kind_of?(Goo::Base::Enum)
-          unless opts[0] && opts[0][:init_enum]
-            raise ArgumentError, "Enums can only be created on initialization"
-          end
+          raise ArgumentError, "Enums can only be created on initialization" unless opts[0] && opts[0][:init_enum]
         end
         batch_file = nil
-        if opts && opts.length > 0
-          if opts.first.is_a?(Hash) && opts.first[:batch] && opts.first[:batch].is_a?(File)
+        callbacks = true
+        if opts && opts.length > 0 && opts.first.is_a?(Hash)
+          if opts.first[:batch] && opts.first[:batch].is_a?(File)
             batch_file = opts.first[:batch]
           end
+
+          callbacks = opts.first[:callbacks]
         end
 
         if !batch_file
-          if not modified?
-            return self
-          end
+          return self if not modified?
           raise Goo::Base::NotValidException, "Object is not valid. Check errors." unless valid?
         end
 
+        #set default values before saving
+        unless self.persistent?
+          self.class.attributes_with_defaults.each do |attr|
+            value = self.send("#{attr}")
+            if value.nil?
+              value = self.class.default(attr).call(self)
+              self.send("#{attr}=", value)
+            end
+          end
+        end
+
+        #call update callback before saving
+        if callbacks
+          self.class.attributes_with_update_callbacks.each do |attr|
+            Goo::Validators::Enforce.enforce_callbacks(self, attr)
+          end
+        end
+
         graph_insert, graph_delete = Goo::SPARQL::Triples.model_update_triples(self)
-        graph = self.graph()
+        graph = self.graph
+
+
         if graph_delete and graph_delete.size > 0
           begin
             Goo.sparql_update_client.delete_data(graph_delete, graph: graph)
@@ -351,9 +353,7 @@ module Goo
 
         @modified_attributes = Set.new
         @persistent = true
-        if self.class.inmutable? && self.class.inm_instances
-          self.class.load_inmutable_instances
-        end
+        self.class.load_inmutable_instances if self.class.inmutable? && self.class.inm_instances
         return self
       end
 
@@ -391,9 +391,7 @@ module Goo
             end
           end
           @unmapped.each do |attr,values|
-            unless all_attr_uris.include?(attr)
-              attr_hash[attr] = values.map { |v| v.to_s }
-            end
+            attr_hash[attr] = values.map { |v| v.to_s } unless all_attr_uris.include?(attr)
           end
         end
         attr_hash[:id] = @id

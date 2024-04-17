@@ -24,6 +24,7 @@ module Goo
         @incl = options[:include]
         @count = options[:count]
         @collection = options[:collection]
+        @options = options
       end
 
       def map_each_solutions(select)

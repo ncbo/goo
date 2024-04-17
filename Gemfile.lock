@@ -121,6 +121,8 @@ GEM
 
 PLATFORMS
   x86_64-darwin-18
+  x86_64-darwin-23
+  x86_64-linux
 
 DEPENDENCIES
   activesupport
@@ -139,4 +141,4 @@ DEPENDENCIES
   uuid
 
 BUNDLED WITH
-   2.3.15
+   2.4.22

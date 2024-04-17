@@ -8,7 +8,7 @@ class Submission < Goo::Base::Resource
 end
 
 class Term < Goo::Base::Resource
-  model :class,
+  model :term,
         namespace: :owl,
         collection: :submission,
         name_with: :id,
@@ -23,22 +23,22 @@ class Term < Goo::Base::Resource
   attribute :parents, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            enforce: [:list, :class]
+            enforce: [:list, :term]
 
   attribute :ancestors, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            enforce: [:list, :class], transitive: true
+            enforce: [:list, :term], transitive: true
 
   attribute :children, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            inverse: { on: :class , attribute: :parents }
+            inverse: { on: :term , attribute: :parents }
 
   attribute :descendants, 
             namespace: :rdfs, 
             property: lambda { |x| tree_property(x) },
-            inverse: { on: :class , attribute: :parents }, 
+            inverse: { on: :term , attribute: :parents },
             transitive: true
 
   def self.tree_property(*args)

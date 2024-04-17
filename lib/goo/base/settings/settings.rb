@@ -1,4 +1,5 @@
 require 'active_support/core_ext/string'
+require_relative 'yaml_settings'
 
 module Goo
   module Base
@@ -12,8 +13,10 @@ module Goo
         attr_reader :model_name
         attr_reader :attribute_uris
 
+        include YAMLScheme
+
         def default_model_options
-          return {}
+           {}
         end
 
         def model(*args)
@@ -34,7 +37,9 @@ module Goo
 
           @model_settings = default_model_options.merge(options || {})
 
-          unless options.include?:name_with
+          init_yaml_scheme_settings
+
+          unless options.include? :name_with
             raise ArgumentError, "The model `#{model_name}` definition should include the :name_with option"
           end
           Goo.add_model(@model_name,self)
@@ -89,6 +94,16 @@ module Goo
         def attributes_with_defaults
           return (@model_settings[:attributes].
                   select{ |attr,opts| opts[:default] }).keys()
+        end
+
+        def attributes_with_update_callbacks
+           (@model_settings[:attributes].
+            select{ |attr,opts| opts[:onUpdate] }).keys
+        end
+
+
+        def update_callbacks(attr)
+          @model_settings[:attributes][attr][:onUpdate]
         end
 
         def default(attr)
@@ -185,10 +200,14 @@ module Goo
           attr_name = attr_name.to_sym
           options = options.pop
           options = {} if options.nil?
-          if options[:enforce].nil? or !options[:enforce].include?(:list)
-            options[:enforce] = options[:enforce] ? (options[:enforce] << :no_list) : [:no_list]
-          end
+
+          options[:enforce] ||= []
+
+          set_data_type(options)
+          set_no_list_by_default(options)
+
           @model_settings[:attributes][attr_name] = options
+          load_yaml_scheme_options(attr_name)
           shape_attribute(attr_name)
           namespace = attribute_namespace(attr_name)
           namespace = namespace || @model_settings[:namespace]
@@ -232,15 +251,13 @@ module Goo
               raise ArgumentError, "Method based attributes cannot be set"
             end
             if self.class.inverse?(attr) && !(args && args.last.instance_of?(Hash) && args.last[:on_load])
-              raise ArgumentError,
-                "`#{attr}` is an inverse attribute. Values cannot be assigned."
+              raise ArgumentError, "`#{attr}` is an inverse attribute. Values cannot be assigned."
             end
             @loaded_attributes.add(attr)
             value = args[0]
             unless args.last.instance_of?(Hash) and args.last[:on_load]
               if self.persistent? and self.class.name_with == attr
-                raise ArgumentError, 
-                    "`#{attr}` attribute is used to name this resource and cannot be modified."
+                raise ArgumentError, "`#{attr}` attribute is used to name this resource and cannot be modified."
               end
               prev = self.instance_variable_get("@#{attr}")
               if !prev.nil? and !@modified_attributes.include?(attr)
@@ -372,6 +389,21 @@ module Goo
           instance
         end
 
+
+        private
+
+        def set_no_list_by_default(options)
+          if options[:enforce].nil? or !options[:enforce].include?(:list)
+            options[:enforce] = options[:enforce] ? (options[:enforce] << :no_list) : [:no_list]
+          end
+        end
+        def set_data_type(options)
+          if options[:type]
+            options[:enforce] += Array(options[:type])
+            options[:enforce].uniq!
+            options.delete :type
+          end
+        end
       end
     end
   end
