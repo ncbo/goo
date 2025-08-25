@@ -29,6 +29,8 @@ module Goo
               check Goo::Validators::DataType, inst, attr, value, opt, Array
             when :uri, RDF::URI
               check Goo::Validators::DataType, inst, attr, value, opt, RDF::URI
+            when :url
+              check Goo::Validators::DataType, inst, attr, value, opt, :url
             when :string, String
               check Goo::Validators::DataType, inst, attr, value, opt, String
             when :integer, Integer
