@@ -1,7 +1,7 @@
 GIT
-  remote: https://github.com/ontoportal-lirmm/sparql-client.git
+  remote: https://github.com/ncbo/sparql-client.git
   revision: 736b7650e28db3ce5e3e49511ac30f958a29e8f1
-  branch: development
+  branch: ontoportal-lirmm-development
   specs:
     sparql-client (3.2.2)
       net-http-persistent (~> 4.0, >= 4.0.2)
@@ -88,8 +88,8 @@ GEM
       time
     net-http (0.6.0)
       uri
-    net-http-persistent (4.0.5)
-      connection_pool (~> 2.2)
+    net-http-persistent (4.0.6)
+      connection_pool (~> 2.2, >= 2.2.4)
     net-protocol (0.2.2)
       timeout
     netrc (0.11.0)
@@ -166,6 +166,7 @@ GEM
       macaddr (~> 1.0)
 
 PLATFORMS
+  arm64-darwin-23
   arm64-darwin-24
   x86_64-linux
 
