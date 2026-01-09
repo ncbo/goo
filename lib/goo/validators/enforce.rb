@@ -28,13 +28,13 @@ module Goo
             when :existence
               check Goo::Validators::Existence, inst, attr, value, opt
             when :list, Array
-              check Goo::Validators::DataType, inst, attr, value,opt, Array
+              check Goo::Validators::DataType, inst, attr, value, opt, Array
             when :uri, RDF::URI
-              check Goo::Validators::DataType, inst, attr, value,opt, RDF::URI
+              check Goo::Validators::DataType, inst, attr, value, opt, RDF::URI
             when :string, String
-              check Goo::Validators::DataType, inst, attr, value,opt, String
+              check Goo::Validators::DataType, inst, attr, value, opt, String
             when :integer, Integer
-              check Goo::Validators::DataType, inst, attr, value,opt, Integer
+              check Goo::Validators::DataType, inst, attr, value, opt, Integer
             when :boolean
               check Goo::Validators::DataType, inst, attr, value, opt,:boolean
             when :date_time, DateTime
@@ -45,6 +45,8 @@ module Goo
               check Goo::Validators::Symmetric, inst, attr, value, opt
             when :email
               check Goo::Validators::Email, inst, attr, value, opt
+            when :username
+              check Goo::Validators::Username, inst, attr, value, opt
             when /^distinct_of_/
               check Goo::Validators::DistinctOf, inst, attr, value, opt, opt
             when /^superior_equal_to_/
@@ -56,6 +58,8 @@ module Goo
             when /^max_/, /^min_/
               type = opt.to_s.index("max_") ? :max : :min
               check Goo::Validators::ValueRange, inst, attr, value, type, opt.to_s
+            when /^safe_text/
+              check Goo::Validators::SafeText, inst, attr, value, opt, opt.to_s
             else
               if object_type?(opt)
                 check_object_type inst, attr, value, opt

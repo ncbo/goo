@@ -5,6 +5,7 @@ require_relative 'models'
 class Person < Goo::Base::Resource
   model :person_model_validators, name_with: :name
   attribute :name, enforce: [:string, :existence]
+  attribute :username, enforce: [:string, :existence, :username]
   attribute :last_name, enforce: [:string]
   attribute :multiple_values, enforce: [ :list, :integer]
   attribute :one_number, enforce: [ :integer ]
@@ -17,6 +18,12 @@ class Person < Goo::Base::Resource
   attribute :friends, enforce: [Person, :list]
 end
 
+class SafeTextTestModel < Goo::Base::Resource
+  model :safe_text_test_model, name_with: :name
+  attribute :first_name, enforce: [:safe_text_5, :existence]
+  attribute :last_name, enforce: [:safe_text_8, :existence]
+  attribute :description, enforce: [:safe_text, :existence]
+end
 
 class RangeTestModel < Goo::Base::Resource
   model :range_test_model, name_with: :name
@@ -96,7 +103,6 @@ class TestValidators < MiniTest::Unit::TestCase
     GooTestData.delete_all [SymmetricTestModel, InverseOfTestModel]
   end
 
-
   def test_unique_validator
 
     s = Student.new
@@ -109,6 +115,71 @@ class TestValidators < MiniTest::Unit::TestCase
     s.name = "new"
 
     assert s.valid?
+  end
+
+  def test_username_validator
+    p = Person.new
+    p.name = "Susan"
+    p.username = "goodusername"
+    assert p.valid?
+
+    p.username = "good_username"
+    assert p.valid?
+
+    p.username = "good.username"
+    assert p.valid?
+
+    p.username = "bad-username"
+    refute p.valid?
+
+    p.username = "1badusername"
+    refute p.valid?
+
+    p.username = "badusername with spaces"
+    refute p.valid?
+
+    p.username = "<input type=\"text\" value=\"jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(2)//>\\x3e\"></input>"
+    refute p.valid?
+  end
+
+  def test_safe_text_validator
+    m = SafeTextTestModel.new
+    m.first_name = 'Susan'
+    m.last_name = 'Johnson'
+    m.description = 'The name Susan carries a rich history and evokes a sense of grace, warmth, and intelligence. While its popularity has somewhat declined, it remains a classic name with a positive reputation and a strong legacy of accomplished individuals associated with it.'
+    assert m.valid?
+
+    m.first_name = 'Michael'
+    refute m.valid?
+    assert_equal 1, m.errors.keys.length
+    assert m.errors[:first_name][:safe_text_5].include?('and must not exceed 5 characters')
+
+    m.first_name = 'Joe'
+    m.description = 'The name Susan 🌍 carries a rich history'
+    refute m.valid?
+    assert_equal 1, m.errors.keys.length
+    assert_equal :description, m.errors.keys[0]
+
+    m.description = "I am a valid description"
+    assert m.valid?
+
+    m.description = "临床表现"
+    assert m.valid?
+
+    m.description = "This string contains\na newline"
+    refute m.valid?
+
+    m.description = "This string has a tab\tcharacter"
+    refute m.valid?
+
+    m.description = "Price is < than $1!"
+    refute m.valid?
+
+    m.description = "This has\u200Bhidden content"
+    refute m.valid?
+
+    m.description = "Normal text\u202Eevil.com"
+    refute m.valid?
   end
 
   def test_existence_validator
@@ -135,6 +206,7 @@ class TestValidators < MiniTest::Unit::TestCase
   def test_datatype_validators
     p = Person.new
     p.name =  'test'
+    p.username = 'test_username'
     #nil  values are valid
     assert p.valid?
 
@@ -174,7 +246,7 @@ class TestValidators < MiniTest::Unit::TestCase
   def test_uri_datatype_validator
     p = Person.new
     p.name =  'test'
-
+    p.username = 'test_username'
     assert p.valid?
 
     p.social =  RDF::URI.new('') #empty uri
@@ -190,6 +262,7 @@ class TestValidators < MiniTest::Unit::TestCase
   def test_object_type_validator
     p = Person.new
     p.name =  'test'
+    p.username = 'test_username'
     p.friends = [1]
 
     refute p.valid?
