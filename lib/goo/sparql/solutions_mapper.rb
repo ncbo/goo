@@ -40,6 +40,8 @@ module Goo
           select.prefix('franzOption_allowCachingResults: <franz:yes>')
         end
 
+        select.options[:bypass_cache] = @options[:bypass_cache] if @options.has_key?(:bypass_cache)
+
         select.each_solution do |sol|
 
           next if sol[:some_type] && @klass.type_uri(@collection) != sol[:some_type]
