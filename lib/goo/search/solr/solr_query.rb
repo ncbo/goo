@@ -16,7 +16,7 @@ module SOLR
         return is_list ? '*_texts' : '*_text' if is_fuzzy_search
 
         dynamic_type = case type
-                       when :uri, :string, nil
+                       when :uri, :url, :string, nil
                          '*_t'
                        when :integer
                          '*_i'

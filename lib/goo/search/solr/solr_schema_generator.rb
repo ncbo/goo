@@ -8,10 +8,13 @@ module SOLR
       @schema = {}
     end
 
-    def add_field(name, type, indexed: true, stored: true, multi_valued: false, omit_norms: nil)
+    def add_field(name, type, indexed: true, stored: true, multi_valued: false, omit_norms: nil, default: nil)
       @schema['add-field'] ||= []
       af = { name: name.to_s, type: type, indexed: indexed, stored: stored, multiValued: multi_valued}
       af[:omitNorms] = omit_norms unless omit_norms.nil?
+      # Solr Schema API expects `default` as a STRING value; sending JSON booleans/numbers
+      # can trigger ClassCastException on Solr side.
+      af[:default] = default.is_a?(String) ? default : default.to_s unless default.nil?
       @schema['add-field'] << af
     end
 
