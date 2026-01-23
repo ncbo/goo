@@ -34,7 +34,10 @@ module RDF
 
   class Literal
     class DateTime < Temporal
-      FORMAT = '%Y-%m-%dT%H:%M:%S'.freeze # the format that is supported by 4store
+      # Override RDF's default DateTime format to match what 4store accepts.
+      # Remove first to avoid Ruby's "already initialized constant" warning.
+      remove_const(:FORMAT) if const_defined?(:FORMAT)
+      FORMAT = '%Y-%m-%dT%H:%M:%S'.freeze
     end
 
     def initialize(value, language: nil, datatype: nil, lexical: nil, validate: false, canonicalize: false, **options)
