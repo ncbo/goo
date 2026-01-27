@@ -85,6 +85,11 @@ module Goo
         end
       end
 
+      # Merge sub-objects into a single document. For example, OntologySubmission.ontology
+      # All Ontology object's properties are merged into a single document for OntologySubmission
+      # Solr datatypes are also added, i.e:
+      # {"name": "*_txt", "type": "text_general", stored: true, "multiValued": true}
+      # {"name": "*_text", "type": "text_general", stored: true, "multiValued": false },
       document = document.reduce({}) do |h, (k, v)|
         if v.is_a?(Hash)
           v.each { |k2, v2| h["#{k}_#{k2}".to_sym] = v2 }
