@@ -84,12 +84,6 @@ module SOLR
             },
             "filters": [
               {
-                "class": "solr.LowerCaseFilterFactory"
-              },
-              {
-                "class": "solr.ASCIIFoldingFilterFactory"
-              },
-              {
                 "class": "solr.WordDelimiterGraphFilterFactory",
                 "generateWordParts": "1",
                 "generateNumberParts": "1",
@@ -97,6 +91,12 @@ module SOLR
                 "catenateNumbers": "0",
                 "catenateAll": "0",
                 "splitOnCaseChange": "1"
+              },
+              {
+                "class": "solr.LowerCaseFilterFactory"
+              },
+              {
+                "class": "solr.ASCIIFoldingFilterFactory"
               },
               {
                 "class": "solr.EdgeNGramFilterFactory",
