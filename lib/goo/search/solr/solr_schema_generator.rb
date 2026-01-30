@@ -78,7 +78,7 @@ module SOLR
           "name": "text_suggest_ngram",
           "class": "solr.TextField",
           "positionIncrementGap": "100",
-          "analyzer": {
+          "indexAnalyzer": {
             "tokenizer": {
               "class": "solr.StandardTokenizerFactory"
             },
@@ -87,9 +87,61 @@ module SOLR
                 "class": "solr.LowerCaseFilterFactory"
               },
               {
-                "class": "solr.EdgeNGramTokenizerFactory",
+                "class": "solr.ASCIIFoldingFilterFactory"
+              },
+              {
+                "class": "solr.WordDelimiterGraphFilterFactory",
+                "generateWordParts": "1",
+                "generateNumberParts": "1",
+                "catenateWords": "0",
+                "catenateNumbers": "0",
+                "catenateAll": "0",
+                "splitOnCaseChange": "1"
+              },
+              {
+                "class": "solr.EdgeNGramFilterFactory",
                 "minGramSize": 1,
-                "maxGramSize": 25
+                "maxGramSize": 20
+              },
+              {
+                "class": "solr.PatternReplaceFilterFactory",
+                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "replacement": "",
+                "replace": "all"
+              }
+            ]
+          },
+          "queryAnalyzer": {
+            "tokenizer": {
+              "class": "solr.StandardTokenizerFactory"
+            },
+            "filters": [
+              {
+                "class": "solr.WordDelimiterGraphFilterFactory",
+                "generateWordParts": "0",
+                "generateNumberParts": "0",
+                "catenateWords": "0",
+                "catenateNumbers": "0",
+                "catenateAll": "0",
+                "splitOnCaseChange": "0"
+              },
+              {
+                "class": "solr.LowerCaseFilterFactory"
+              },
+              {
+                "class": "solr.ASCIIFoldingFilterFactory"
+              },
+              {
+                "class": "solr.PatternReplaceFilterFactory",
+                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "replacement": "",
+                "replace": "all"
+              },
+              {
+                "class": "solr.PatternReplaceFilterFactory",
+                "pattern": "^(.{20})(.*)?",
+                "replacement": "$1",
+                "replace": "all"
               }
             ]
           }
@@ -157,12 +209,6 @@ module SOLR
                 "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
                 "replacement": "",
                 "replace": "all"
-              },
-              {
-                "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "^(.{30})(.*)?",
-                "replacement": "$1",
-                "replace": "all"
               }
             ]
           }
@@ -222,8 +268,7 @@ module SOLR
                 "catenateWords": "0",
                 "catenateNumbers": "0",
                 "catenateAll": "0",
-                "splitOnCaseChange": "0",
-                "splitOnNumerics": "0"
+                "splitOnCaseChange": "0"
               },
               {
                 "class": "solr.LowerCaseFilterFactory"
