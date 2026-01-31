@@ -183,9 +183,6 @@ module TestSearch
       resp = TermSearch.search("肿瘤", params)
       assert_equal(1, resp["response"]["numFound"])
       assert_equal @terms[1].prefLabel, resp["response"]["docs"][0]["prefLabel"]
-
-
-
     end
 
     def test_search_exact_filter
