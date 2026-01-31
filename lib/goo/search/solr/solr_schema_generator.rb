@@ -105,7 +105,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": "",
                 "replace": "all"
               }
@@ -133,7 +133,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": "",
                 "replace": "all"
               },
@@ -178,7 +178,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": "",
                 "replace": "all"
               }
@@ -206,7 +206,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\\w\\d\\*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": "",
                 "replace": "all"
               }
@@ -244,7 +244,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\w\d*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": " ",
                 "replace": "all"
               }
@@ -275,7 +275,7 @@ module SOLR
               },
               {
                 "class": "solr.PatternReplaceFilterFactory",
-                "pattern": "([^\w\d*æøåÆØÅ ])",
+                "pattern": "([^\\p{L}\\p{N}\\* ])",
                 "replacement": " ",
                 "replace": "all"
               }

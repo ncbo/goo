@@ -101,7 +101,7 @@ module TestSearch
           id: RDF::URI.new("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#Melanoma"),
           prefLabel: "Melanoma",
           synonym: [
-            "Cutaneous Melanoma",
+            "Cancerous Melanoma",
             "Skin Cancer",
             "Malignant Melanoma"
           ],
@@ -116,6 +116,7 @@ module TestSearch
           prefLabel: "Neoplasm",
           synonym: [
             "tumor",
+            "肿瘤",
             "Neoplasms",
             "NEOPLASMS BENIGN",
             "MALIGNANT AND UNSPECIFIED (INCL CYSTS AND POLYPS)",
@@ -137,7 +138,7 @@ module TestSearch
           prefLabel: "Melanoma with cutaneous melanoma syndrome",
           synonym: [
             "Cutaneous Melanoma",
-            "Skin Cancer",
+            "Melanocytes Skin Cancer",
             "Malignant Melanoma"
           ],
           definition: "Melanoma refers to a malignant skin cancer",
@@ -171,12 +172,20 @@ module TestSearch
       params = {"defType"=>"edismax",
                  "stopwords"=>"true",
                  "lowercaseOperators"=>"true",
-                 "qf"=>"prefLabelExact^100 prefLabelSuggestEdge^50 synonymSuggestEdge^10 prefLabelSuggestNgram synonymSuggestNgram resource_id  cui semanticType",
+                 "qf"=>"prefLabelExact^100 prefLabelSuggestEdge^50 synonymSuggestEdge^10 prefLabelSuggestNgram synonymSuggestNgram resource_id cui semanticType",
                  "pf"=>"prefLabelSuggest^50",
                  }
-      resp = TermSearch.search("Melanoma wi", params)
-      assert_equal(3, resp["response"]["numFound"])
+      resp = TermSearch.search("Cutaneous Melanoma", params)
+      assert_equal(2, resp["response"]["numFound"])
       assert_equal @terms[2].prefLabel, resp["response"]["docs"][0]["prefLabel"]
+
+      # test NOT filtering out unicode characters
+      resp = TermSearch.search("肿瘤", params)
+      assert_equal(1, resp["response"]["numFound"])
+      assert_equal @terms[1].prefLabel, resp["response"]["docs"][0]["prefLabel"]
+
+
+
     end
 
     def test_search_exact_filter
