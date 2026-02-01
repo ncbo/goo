@@ -137,6 +137,11 @@ module TestChunkWrite
       25.times do |i|
         threads << Thread.new {
           50.times do |j|
+            # The query WHERE { ?s a ?o } does not specify a graph, so it runs against the default graph.
+            # In AllegroGraph, the default graph is empty by default and does not include named graphs.
+            # In 4store/Virtuoso, the default graph is effectively a union of named graphs,
+            # so the original query works. Therefore, in AllegroGraph the count returns 0, causing
+            # refute_equal 0 to fail. This commit adds a named graph to the query.
             oq = "SELECT (count(?s) as ?c) WHERE { GRAPH <#{ONT_ID}> { ?s a ?o } }"
             Goo.sparql_query_client.query(oq).each do |sol|
               refute_equal 0, sol[:c].to_i
