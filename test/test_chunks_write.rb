@@ -132,12 +132,12 @@ module TestChunkWrite
       tput = Thread.new {
         Goo.sparql_data_client.put_triples(ONT_ID_EXTRA, ntriples_file_path, mime_type="application/x-turtle")
       }
-
+      
       threads = []
       25.times do |i|
         threads << Thread.new {
           50.times do |j|
-            oq = "SELECT (count(?s) as ?c) WHERE { ?s a ?o }"
+            oq = "SELECT (count(?s) as ?c) WHERE { GRAPH <#{ONT_ID}> { ?s a ?o } }"
             Goo.sparql_query_client.query(oq).each do |sol|
               refute_equal 0, sol[:c].to_i
             end
@@ -145,7 +145,7 @@ module TestChunkWrite
         }
       end
 
-      threads.join
+      threads.each(&:join)
 
       if Goo.backend_4s?
         log_status = []

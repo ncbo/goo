@@ -16,7 +16,7 @@ services:
     command: bin/solr start -cloud -f
 
   agraph-ut:
-    image: franzinc/agraph:v8.1.0
+    image: franzinc/agraph:v8.3.1
     platform: linux/amd64
     environment:
       - AGRAPH_SUPER_USER=test
