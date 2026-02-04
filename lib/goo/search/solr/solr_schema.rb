@@ -107,7 +107,7 @@ module SOLR
 
     def map_to_indexer_type(orm_data_type)
       case orm_data_type
-      when :uri
+      when :uri, :url
         'string' # Assuming a string field for URIs
       when :string, nil # Default to 'string' if no type is given
         'text_general' # Assuming a generic text field for strings
