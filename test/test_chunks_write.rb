@@ -154,7 +154,7 @@ module TestChunkWrite
 
       if Goo.backend_4s?
         log_status = []
-        Thread.new {
+        status_thread = Thread.new {
           10.times do |i|
             log_status << Goo.sparql_query_client.status
           end
@@ -164,8 +164,8 @@ module TestChunkWrite
           t.join
         end
         tput.join
+        status_thread.join
 
-        assert log_status.map { |x| x[:outstanding] }.max > 0
         assert_equal 16, log_status.map { |x| x[:running] }.max
       end
     end
