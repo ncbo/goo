@@ -7,8 +7,6 @@ services:
       GOO_PATH_QUERY: /repositories/ontoportal_test
       GOO_PATH_DATA: /repositories/ontoportal_test/statements
       GOO_PATH_UPDATE: /repositories/ontoportal_test/statements
-    # profiles:
-    #   - ag
     depends_on:
       solr-ut:
         condition: service_healthy

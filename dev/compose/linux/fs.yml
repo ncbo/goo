@@ -4,8 +4,6 @@ services:
       GOO_BACKEND_NAME: '4store'
       GOO_HOST: 4store-ut
       GOO_PORT: 9000
-    # profiles:
-    #   - fs
     depends_on:
       solr-ut:
         condition: service_healthy

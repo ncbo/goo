@@ -7,8 +7,6 @@ services:
       GOO_PATH_QUERY: /sparql
       GOO_PATH_DATA: /sparql
       GOO_PATH_UPDATE: /sparql
-    # profiles:
-    #   - vo
     depends_on:
       solr-ut:
         condition: service_healthy
