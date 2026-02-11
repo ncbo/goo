@@ -21,8 +21,8 @@ module Goo
     @settings.goo_path_data       ||= ENV['GOO_PATH_DATA'] || '/data/'
     @settings.goo_path_update     ||= ENV['GOO_PATH_UPDATE'] || '/update/'
     @settings.search_server_url   ||= ENV['SEARCH_SERVER_URL'] || 'http://localhost:8983/solr'
-    @settings.redis_host          ||= ENV['REDIS_HOST'] || 'localhost'
-    @settings.redis_port          ||= ENV['REDIS_PORT'] || 6379
+    @settings.goo_redis_host      ||= ENV['REDIS_HOST'] || 'localhost'
+    @settings.goo_redis_port      ||= ENV['REDIS_PORT'] || 6379
     @settings.bioportal_namespace ||= ENV['BIOPORTAL_NAMESPACE'] || 'http://data.bioontology.org/'
     @settings.query_logging       ||= ENV['QUERIES_LOGGING'] || false
     @settings.query_logging_file  ||= ENV['QUERIES_LOGGING_FILE'] || './sparql.log'
@@ -30,7 +30,7 @@ module Goo
     @settings.slice_loading_size  ||= ENV['GOO_SLICES']&.to_i || 500
     puts "(GOO) >> Using RDF store (#{@settings.goo_backend_name}) #{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}"
     puts "(GOO) >> Using term search server at #{@settings.search_server_url}"
-    puts "(GOO) >> Using Redis instance at #{@settings.redis_host}:#{@settings.redis_port}"
+    puts "(GOO) >> Using Redis instance at #{@settings.goo_redis_host}:#{@settings.goo_redis_port}"
     puts "(GOO) >> Using Query logging: #{@settings.query_logging_file}" if @settings.query_logging
 
     connect_goo
