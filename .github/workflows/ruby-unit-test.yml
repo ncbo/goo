@@ -1,6 +1,12 @@
 name: Ruby Unit Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'   # ignore all tag pushes
+  pull_request:
 
 permissions:
   contents: read
@@ -13,11 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         goo-slice: [ '100']
-        ruby-version: [ '3.2.0' ]
-        triplestore: [ 'fs', 'ag', 'vo', 'gb' ]
+        ruby-version: [ '3.2' ]
+        triplestore: [ 'fs', 'ag', 'vo', 'gd' ]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Dependencies
       run: sudo apt-get update && sudo apt-get -y install raptor2-utils
     - name: Set up Ruby
@@ -29,8 +35,8 @@ jobs:
       # tempoaray workaround for the config.rb file requirement
       run:  echo 'Goo.config do |config| end' > config/config.rb
     - name: List directory contents
-      run: ls -R ./test/data
+      run: ls -R ./test/fixtures
     - name: Run tests
       run: GOO_SLICES=${{ matrix.goo-slice }} bundle exec rake test:docker:${{ matrix.triplestore }} TESTOPTS="-v"
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5

@@ -13,6 +13,42 @@ To see Goo in action browse to the following links:
 - [BioPortal New API Documentation](http://stagedata.bioontology.org/documentation)
 - [BioPortal New API Access](http://stagedata.bioontology.org/)
 
+## Tests
+
+Run the unit tests:
+
+```
+bundle exec rake test
+```
+
+Run docker-backed tests (host Ruby):
+
+```
+bundle exec rake test:docker:fs
+bundle exec rake test:docker:ag
+bundle exec rake test:docker:vo
+bundle exec rake test:docker:gd
+```
+
+Run docker-backed tests inside the Linux container:
+
+```
+bundle exec rake test:docker:fs:linux
+bundle exec rake test:docker:ag:linux
+bundle exec rake test:docker:vo:linux
+bundle exec rake test:docker:gd:linux
+```
+
+Start a shell in the Linux test container (default backend `fs`):
+
+```
+bundle exec rake test:docker:shell
+bundle exec rake test:docker:shell[ag]
+```
+
+Set `OP_KEEP_CONTAINERS=1` to keep services up after tests or shell exit.
+Set `OP_TEST_DOCKER_BACKEND=ag` (or `fs`, `vo`, `gd`) to change the default backend for `test:docker:shell`, `test:docker:up`, and `test:docker:down`.
+
 
 ## Schema Definitions (DSL)
 

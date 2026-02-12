@@ -1,14 +1,14 @@
 Goo.config do |config|
   # 4store
   config.goo_backend_name    = '4store'
-  config.goo_port            = 8080
+  config.goo_port            =  9000
   config.goo_host            = 'localhost'
   config.goo_path_query      = '/sparql/'
   config.goo_path_data       = '/data/'
   config.goo_path_update     = '/update/'
 
   # AllegroGraph
-  # config.goo_backend_name  = 'AG'
+  # config.goo_backend_name  = 'allegrograph'
   # config.goo_port          = 10035
   # config.goo_host          = 'localhost'
   # config.goo_path_query    = "/repositories/ontoportal"
@@ -16,8 +16,8 @@ Goo.config do |config|
   # config.goo_path_update   = "/repositories/ontoportal/statements/"
 
   config.search_server_url   = 'http://localhost:8983/solr/'
-  config.redis_host          = 'localhost'
-  config.redis_port          = 6379
+  config.goo_redis_host      = 'localhost'
+  config.goo_redis_port      = 6379
   config.bioportal_namespace = 'http://data.bioontology.org/'
   config.queries_debug       = false
 end

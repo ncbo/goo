@@ -3,8 +3,8 @@
 @prefix sail: <http://www.openrdf.org/config/sail#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<#ontoportal> a rep:Repository;
-  rep:repositoryID "ontoportal";
+<#ontoportal_test> a rep:Repository;
+  rep:repositoryID "ontoportal_test";
   rep:repositoryImpl [
       rep:repositoryType "graphdb:SailRepository";
       <http://www.openrdf.org/config/repository/sail#sailImpl> [

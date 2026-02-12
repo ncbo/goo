@@ -21,8 +21,8 @@ module Goo
     @settings.goo_path_data       ||= ENV['GOO_PATH_DATA'] || '/data/'
     @settings.goo_path_update     ||= ENV['GOO_PATH_UPDATE'] || '/update/'
     @settings.search_server_url   ||= ENV['SEARCH_SERVER_URL'] || 'http://localhost:8983/solr'
-    @settings.redis_host          ||= ENV['REDIS_HOST'] || 'localhost'
-    @settings.redis_port          ||= ENV['REDIS_PORT'] || 6379
+    @settings.goo_redis_host      ||= ENV['REDIS_HOST'] || 'localhost'
+    @settings.goo_redis_port      ||= ENV['REDIS_PORT'] || 6379
     @settings.bioportal_namespace ||= ENV['BIOPORTAL_NAMESPACE'] || 'http://data.bioontology.org/'
     @settings.query_logging       ||= ENV['QUERIES_LOGGING'] || false
     @settings.query_logging_file  ||= ENV['QUERIES_LOGGING_FILE'] || './sparql.log'
@@ -30,7 +30,7 @@ module Goo
     @settings.slice_loading_size  ||= ENV['GOO_SLICES']&.to_i || 500
     puts "(GOO) >> Using RDF store (#{@settings.goo_backend_name}) #{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}"
     puts "(GOO) >> Using term search server at #{@settings.search_server_url}"
-    puts "(GOO) >> Using Redis instance at #{@settings.redis_host}:#{@settings.redis_port}"
+    puts "(GOO) >> Using Redis instance at #{@settings.goo_redis_host}:#{@settings.goo_redis_port}"
     puts "(GOO) >> Using Query logging: #{@settings.query_logging_file}" if @settings.query_logging
 
     connect_goo
@@ -67,19 +67,6 @@ module Goo
     rescue StandardError => e
       abort("EXITING: Goo cannot connect to triplestore and/or search server:\n  #{e}\n#{e.backtrace.join("\n")}")
     end
-  end
-
-  def self.test_reset
-    if @@sparql_backends[:main][:query].url.to_s["localhost"].nil?
-      raise Exception, "only for testing"
-    end
-    @@sparql_backends = {}
-    Goo.add_sparql_backend(:main,
-                            backend_name: @settings.goo_backend_name,
-                            query: "http://#{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}",
-                            data: "http://#{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_data}",
-                            update: "http://#{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_update}",
-                            options: { rules: :NONE })
   end
 
 end

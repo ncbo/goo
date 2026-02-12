@@ -154,7 +154,7 @@ class TestCache < MiniTest::Unit::TestCase
       #different query
       programs = Program.where(name: "BioInformatics X", university: [ name: "Stanford"  ]).all
     end
-    Goo.test_reset
+    TestHelpers.test_reset
     Goo.use_cache=false
   end
 
