@@ -20,7 +20,7 @@ require 'minitest/unit'
 MiniTest::Unit.autorun
 
 require_relative "../lib/goo.rb"
-require_relative '../config/config'
+require_relative '../config/config.test'
 
 # Safety guard for destructive tests: ensure test targets are safe (localhost or -ut suffix)
 module TestSafety
