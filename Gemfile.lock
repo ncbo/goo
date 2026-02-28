@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/alexskr/ontoportal_testkit.git
-  revision: 98c0c1c4a89ebbb6106cd7bbc6cd1409b3ed3c7e
+  revision: c154c17f2e8b1a7931b710febfcadb15e566f672
   branch: main
   specs:
     ontoportal_testkit (0.1.0)
