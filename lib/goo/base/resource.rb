@@ -247,7 +247,7 @@ module Goo
 
         if !batch_file
           return self if !modified?  && persistent?
-          raise Goo::Base::NotValidException, "Object is not valid. Check errors." unless valid?
+          raise Goo::Base::NotValidException, "Object is not valid. Errors: #{errors}" unless valid?
         end
 
         #set default values before saving

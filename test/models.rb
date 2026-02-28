@@ -64,11 +64,26 @@ class Student < Goo::Base::Resource
 end
 
 module GooTestData
+  TRACKED_FIXTURE_MODELS = [Student, University, Program, Category, Address].freeze
+
+  def self.safe_model_count(model)
+    model.where.include(model.attributes).all.length
+  rescue StandardError => e
+    warn "[GooTestData] count failed for #{model.name}: #{e.class}: #{e.message}"
+    -1
+  end
+
+  def self.log_fixture_counts(stage)
+    summary = TRACKED_FIXTURE_MODELS.map { |m| "#{m.name}=#{safe_model_count(m)}" }.join(", ")
+    puts "[GooTestData] #{stage}: #{summary}"
+  end
+
   def self.create_test_case_data
+    log_fixture_counts("before create_test_case_data")
     addresses = {}
-    addresses["Stanford"] = [ Address.new(line1: "bla", line2: "foo", country: "US").save ]
-    addresses["Southampton"] = [ Address.new(line1: "bla", line2: "foo", country: "UK").save ]
-    addresses["UPM"] = [ Address.new(line1: "bla", line2: "foo", country: "SP").save ]
+    addresses["Stanford"] = [Address.where(line1: "bla", line2: "foo", country: "US").first || Address.new(line1: "bla", line2: "foo", country: "US").save]
+    addresses["Southampton"] = [Address.where(line1: "bla", line2: "foo", country: "UK").first || Address.new(line1: "bla", line2: "foo", country: "UK").save]
+    addresses["UPM"] = [Address.where(line1: "bla", line2: "foo", country: "SP").first || Address.new(line1: "bla", line2: "foo", country: "SP").save]
     ["Stanford", "Southampton", "UPM"].each do |uni_name|
       if University.find(uni_name).nil?
         University.new(name: uni_name, address: addresses[uni_name]).save
@@ -79,7 +94,9 @@ module GooTestData
           end
           prg = Program.new(name: p, category: categories, credits: credits,
                             university: University.find(uni_name).include(:name).first )
-          binding.pry if !prg.valid?
+          unless prg.valid?
+            raise "Program fixture is invalid for university=#{uni_name.inspect}, program=#{p.inspect}. Errors: #{prg.errors.inspect}"
+          end
           prg.save if !prg.exist?
         end
       end
@@ -96,12 +113,19 @@ module GooTestData
         programs << pr
       end
       st.enrolled= programs
-      st.save rescue binding.pry
+      begin
+        st.save
+      rescue StandardError => e
+        raise "#{e.class}: failed saving student fixture #{st_data[0].inspect}. #{e.message}"
+      end
     end
+    log_fixture_counts("after create_test_case_data")
   end
 
   def self.delete_test_case_data
+    log_fixture_counts("before delete_test_case_data")
     delete_all [Student, University, Program, Category, Address]
+    log_fixture_counts("after delete_test_case_data")
   end
 
   def self.delete_all(objects)
