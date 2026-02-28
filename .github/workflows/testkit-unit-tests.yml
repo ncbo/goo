@@ -42,6 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install native system dependencies
+        if: env.OPTK_CI_RUN_MODE == 'native'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y raptor2-utils
+
       - name: Set up Ruby from .ruby-version
         uses: ruby/setup-ruby@v1
         with:
