@@ -1,5 +1,5 @@
 component_name: goo
-app_service: test-linux
+app_service: test-container
 backends:
   - fs
   - ag

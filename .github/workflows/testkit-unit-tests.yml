@@ -8,6 +8,14 @@ on:
       - '**'
   pull_request:
 
+env:
+  # CI execution mode for backend tests:
+  # - container: run `test:docker:<backend>:container` (default)
+  # - native: run `test:docker:<backend>` on host Ruby
+  # OPTK_CI_RUN_MODE: { vars.OPTK_CI_RUN_MODE || 'container' }}
+  # Example override to force native mode in this workflow file:
+  OPTK_CI_RUN_MODE: native
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -45,13 +53,22 @@ jobs:
           repository: alexskr/ontoportal_testkit
           path: .tooling/ontoportal_testkit
 
-      - name: Run unit tests in linux container
+      - name: Run unit tests
         env:
           CI: "true"
           TESTOPTS: "-v"
           BACKEND: ${{ matrix.backend }}
         run: |
-          ruby -I .tooling/ontoportal_testkit/lib -e 'require "rake"; require "ontoportal/testkit/tasks"; Rake::Task["test:docker:#{ENV.fetch("BACKEND")}:linux"].invoke'
+          MODE="${OPTK_CI_RUN_MODE:-container}"
+          TASK="test:docker:${BACKEND}"
+          if [ "$MODE" = "container" ]; then
+            TASK="${TASK}:container"
+          elif [ "$MODE" != "native" ]; then
+            echo "Invalid OPTK_CI_RUN_MODE=$MODE (expected container or native)"
+            exit 1
+          fi
+
+          TASK="$TASK" ruby -I .tooling/ontoportal_testkit/lib -e 'require "rake"; require "ontoportal/testkit/tasks"; Rake::Task[ENV.fetch("TASK")].invoke'
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
