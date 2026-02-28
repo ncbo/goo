@@ -12,9 +12,9 @@ env:
   # CI execution mode for backend tests:
   # - container: run `test:docker:<backend>:container` (default)
   # - native: run `test:docker:<backend>` on host Ruby
-  OPTK_CI_RUN_MODE: ${{ vars.OPTK_CI_RUN_MODE || 'container' }}
+  # OPTK_CI_RUN_MODE: ${{ vars.OPTK_CI_RUN_MODE || 'container' }}
   # Example override to force native mode in this workflow file:
-  # OPTK_CI_RUN_MODE: native
+  OPTK_CI_RUN_MODE: native
 
 jobs:
   prepare:
