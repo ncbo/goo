@@ -4,6 +4,7 @@
 *.tags*
 .bundle
 .config
+.serena
 coverage
 InstalledFiles
 lib/bundler/man
