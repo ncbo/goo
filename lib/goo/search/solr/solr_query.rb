@@ -85,23 +85,25 @@ module SOLR
 
     def submit_search_query(query, params = {})
       uri = ::URI.parse("#{collection_url}/select")
-
       http = Net::HTTP.new(uri.host, uri.port)
       request = Net::HTTP::Post.new(uri.request_uri)
 
+      params = params.dup
       params[:q] = query
+      params[:wt] ||= "json"
+
+      request["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+      request["X-Requested-With"] = "XMLHttpRequest" # helps when Solr CSRF filter is enabled
       request.set_form_data(params)
 
       response = http.request(request)
 
-      if response.is_a?(Net::HTTPSuccess)
-        JSON.parse(response.body)
-      else
-        puts "Error: #{response.code} - #{response.message}"
-        nil
+      unless response.is_a?(Net::HTTPSuccess)
+        raise "Solr query failed (HTTP #{response.code} #{response.message}): #{response.body}"
       end
-    end
 
+      JSON.parse(response.body)
+    end
 
   end
 end
