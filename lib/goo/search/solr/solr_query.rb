@@ -79,8 +79,9 @@ module SOLR
     end
 
     def search(query, params = {})
-      params[:q] = query
-      @solr.get('select', params: params)
+      body = params.dup
+      body[:q] = query
+      @solr.post('select', data: body)
     end
 
     def submit_search_query(query, params = {})
@@ -107,4 +108,3 @@ module SOLR
 
   end
 end
-
