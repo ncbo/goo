@@ -288,7 +288,7 @@ module SOLR
     def init_fields
       [
         #{ name: "_version_", type: "plong", indexed: true, stored: true, multiValued: false },
-        { name: "resource_id", type: "string_ci", indexed: true, multiValued: false, required: true, stored: true },
+        { name: "resource_id", type: "string", indexed: true, multiValued: false, required: true, stored: true },
         { name: "resource_model", type: "string", indexed: true, multiValued: false, required: true, stored: false },
         { name: "_text_", type: "text_general", indexed: true, multiValued: true, stored: false },
       ]
