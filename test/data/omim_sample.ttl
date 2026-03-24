@@ -1,0 +1,159 @@
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix umls: <http://bioportal.bioontology.org/ontologies/umls/> .
+
+<http://purl.bioontology.org/ontology/OMIM/>
+    a owl:Ontology ;
+    rdfs:comment "RDF Version of the UMLS ontology OMIM; converted with the UMLS2RDF tool (https://github.com/ncbo/umls2rdf), developed by the NCBO project." ;
+    rdfs:label "Online Mendelian Inheritance in Man" ;
+    owl:imports <http://www.w3.org/2004/02/skos/core> ;
+    owl:versionInfo "2025_08_04" ;
+    dcterms:source "UMLS 2025AB" ;
+    skos:altLabel "OMIM" .
+
+<http://purl.bioontology.org/ontology/OMIM/100100> a owl:Class ;
+	skos:prefLabel """ABETALIPOPROTEINEMIA"""@en ;
+	skos:notation """100100"""^^xsd:string ;
+	skos:altLabel """ABL"""@en , """BASSEN-KORNZWEIG SYNDROME"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Mendelian phenotype or locus"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """number"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """4q24"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ABL"""^^xsd:string ;
+	umls:cui """C0000744"""^^xsd:string ;
+	umls:tui """T047"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T047> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100200> a owl:Class ;
+	skos:prefLabel """ABIOTROPHY, CEREBELLAR"""@en ;
+	skos:notation """100200"""^^xsd:string ;
+	skos:altLabel """CACR"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Gene with known sequence"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """star"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """1p36.1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """CACR"""^^xsd:string ;
+	umls:cui """C0000762"""^^xsd:string ;
+	umls:tui """T047"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T047> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100300> a owl:Class ;
+	skos:prefLabel """ADAMS-OLIVER SYNDROME 1"""@en ;
+	skos:notation """100300"""^^xsd:string ;
+	skos:altLabel """AOS1"""@en , """ABSENCE DEFECT OF LIMBS, SCALP, AND SKULL"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Mendelian phenotype or locus"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """number"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """6q24.2"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """AOS1"""^^xsd:string ;
+	umls:cui """C0265268"""^^xsd:string ;
+	umls:tui """T019"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T019> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100400> a owl:Class ;
+	skos:prefLabel """ACANTHOSIS NIGRICANS"""@en ;
+	skos:notation """100400"""^^xsd:string ;
+	skos:altLabel """ACANTHOSIS"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Gene with known sequence"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """star"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """11p15.5"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ACANTHOSIS"""^^xsd:string ;
+	umls:cui """C0000889"""^^xsd:string ;
+	umls:tui """T047"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T047> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100500> a owl:Class ;
+	skos:prefLabel """ACHONDROPLASIA"""@en ;
+	skos:notation """100500"""^^xsd:string ;
+	skos:altLabel """ACH"""@en , """DWARFISM, ACHONDROPLASTIC"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/phenotype_of> <http://purl.bioontology.org/ontology/OMIM/100500.0001> ;
+	<http://purl.bioontology.org/ontology/OMIM/phenotype_of> <http://purl.bioontology.org/ontology/OMIM/100500.0002> ;
+	<http://purl.bioontology.org/ontology/OMIM/has_allelic_variant> <http://purl.bioontology.org/ontology/OMIM/100500.0001> ;
+	<http://purl.bioontology.org/ontology/OMIM/has_allelic_variant> <http://purl.bioontology.org/ontology/OMIM/100500.0002> ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Mendelian phenotype or locus"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """number"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """4p16.3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ACH"""^^xsd:string ;
+	umls:cui """C0001080"""^^xsd:string ;
+	umls:tui """T019"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T019> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100600> a owl:Class ;
+	skos:prefLabel """ACROCEPHALOSYNDACTYLY TYPE I"""@en ;
+	skos:notation """100600"""^^xsd:string ;
+	skos:altLabel """ACS1"""@en , """APERT SYNDROME"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Mendelian phenotype or locus"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """number"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """10q26"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ACS1"""^^xsd:string ;
+	umls:cui """C0001193"""^^xsd:string ;
+	umls:tui """T019"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T019> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100700> a owl:Class ;
+	skos:prefLabel """ADDISON DISEASE"""@en ;
+	skos:notation """100700"""^^xsd:string ;
+	skos:altLabel """AD"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Gene with known sequence"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """star"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """6p21.3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """AD"""^^xsd:string ;
+	umls:cui """C0001403"""^^xsd:string ;
+	umls:tui """T047"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T047> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100800> a owl:Class ;
+	skos:prefLabel """ADENOMA, PERIAMPULLARY"""@en ;
+	skos:notation """100800"""^^xsd:string ;
+	skos:altLabel """ADENOMA"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Gene with known sequence"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """star"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """12q24.1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ADENOMA"""^^xsd:string ;
+	umls:cui """C0001418"""^^xsd:string ;
+	umls:tui """T191"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T191> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/100900> a owl:Class ;
+	skos:prefLabel """AGENESIS OF CORPUS CALLOSUM"""@en ;
+	skos:notation """100900"""^^xsd:string ;
+	skos:altLabel """ACC"""@en , """CORPUS CALLOSUM, AGENESIS OF"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Mendelian phenotype or locus"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """number"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """12p13.3"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """ACC"""^^xsd:string ;
+	umls:cui """C0175754"""^^xsd:string ;
+	umls:tui """T019"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T019> ;
+ .
+
+<http://purl.bioontology.org/ontology/OMIM/101000> a owl:Class ;
+	skos:prefLabel """AICARDI SYNDROME"""@en ;
+	skos:notation """101000"""^^xsd:string ;
+	skos:altLabel """AIC"""@en ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEMEANING> """Gene with known sequence"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPE> """1"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/MIMTYPEVALUE> """star"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENELOCUS> """Xp22"""^^xsd:string ;
+	<http://purl.bioontology.org/ontology/OMIM/GENESYMBOL> """AIC"""^^xsd:string ;
+	umls:cui """C0175713"""^^xsd:string ;
+	umls:tui """T047"""^^xsd:string ;
+	umls:hasSTY <http://purl.bioontology.org/ontology/STY/T047> ;
+ .

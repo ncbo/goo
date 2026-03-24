@@ -119,20 +119,26 @@ module Goo
           chunk_lines = 500_000 # number of line
         end
 
-        file = File.foreach(bnodes_filter)
-        lines = []
-        line_count = 0
-        file.each_entry do |line|
-          lines << line
+        turtle_format = bnodes_filter.end_with?('ttl') || bnodes_filter.end_with?('n3')
 
-          if lines.size == chunk_lines
-            response = append_triples_batch(graph, lines, mime_type_in, line_count)
-            line_count += lines.size
-            lines.clear
+        if turtle_format
+          response = append_turtle_chunked(graph, bnodes_filter, mime_type_in, chunk_lines)
+        else
+          file = File.foreach(bnodes_filter)
+          lines = []
+          line_count = 0
+          file.each_entry do |line|
+            lines << line
+
+            if lines.size == chunk_lines
+              response = append_triples_batch(graph, lines, mime_type_in, line_count)
+              line_count += lines.size
+              lines.clear
+            end
           end
-        end
 
-        response = append_triples_batch(graph, lines, mime_type_in, line_count) unless lines.empty?
+          response = append_triples_batch(graph, lines, mime_type_in, line_count) unless lines.empty?
+        end
 
         unless dir.nil?
           File.delete(bnodes_filter)
@@ -142,6 +148,41 @@ module Goo
             puts "Error deleting tmp file #{dir}"
             puts e.backtrace
           end
+        end
+        response
+      end
+
+      # Turtle-aware chunking: preserves prefix declarations and only splits
+      # at statement boundaries (lines ending with '.') to avoid sending
+      # malformed Turtle fragments to the triplestore.
+      def append_turtle_chunked(graph, file_path, mime_type_in, chunk_lines)
+        response = nil
+        prefixes = []
+        lines = []
+        line_count = 0
+
+        File.foreach(file_path) do |line|
+          # Collect all prefix and base declarations
+          stripped = line.strip
+          if stripped.start_with?('@prefix', '@base', 'PREFIX', 'BASE')
+            prefixes << line
+            line_count += 1
+            next
+          end
+
+          lines << line
+
+          if lines.size >= chunk_lines && stripped.end_with?('.')
+            chunk = prefixes + lines
+            response = append_triples_batch(graph, chunk, mime_type_in, line_count)
+            line_count += lines.size
+            lines.clear
+          end
+        end
+
+        unless lines.empty?
+          chunk = prefixes + lines
+          response = append_triples_batch(graph, chunk, mime_type_in, line_count)
         end
         response
       end
