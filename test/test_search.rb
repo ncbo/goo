@@ -168,6 +168,38 @@ module TestSearch
       assert_equal :physical_search_test_v2, Goo.search_collection_target(:logical_search_test)
     end
 
+    def test_promote_search_alias_retargets_logical_connection
+      logical_collection = :logical_alias_search
+      alias_name = :logical_alias_search_active
+      initial_collection = :logical_alias_search_v1
+      promoted_collection = :logical_alias_search_v2
+
+      Goo.add_search_connection(logical_collection, :main, target_collection: alias_name)
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, alias_name)
+
+      begin
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(initial_collection)
+        admin_connector.delete_collection(promoted_collection)
+        admin_connector.create_collection(initial_collection)
+        admin_connector.create_collection(promoted_collection)
+
+        Goo.init_search_connection(logical_collection, :main, nil, force: true, target_collection: initial_collection)
+        assert_equal initial_collection, Goo.search_client(logical_collection).collection_name.to_sym
+
+        Goo.promote_search_alias(logical_collection, promoted_collection, alias_name: alias_name)
+
+        assert_equal [promoted_collection.to_s], admin_connector.resolve_alias(alias_name)
+        assert_equal alias_name, Goo.search_collection_target(logical_collection)
+        assert_equal alias_name, Goo.search_client(logical_collection).collection_name.to_sym
+      ensure
+        Goo.reset_search_connection(logical_collection)
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(initial_collection)
+        admin_connector.delete_collection(promoted_collection)
+      end
+    end
+
     def test_search
       TermSearch.indexClear()
       @terms[1].index()

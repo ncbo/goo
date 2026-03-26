@@ -317,11 +317,45 @@ module Goo
     @@search_collections[collection_name] = existing_config.merge(target_collection: target_collection.to_sym)
   end
 
+  def self.reset_search_connection(collection_name)
+    @@search_connection.delete(collection_name)
+  end
+
+  # Atomically repoints a logical Goo search connection to a rebuilt Solr collection
+  # by updating a Solr alias and optionally reinitializing the cached connector
+  # against that alias. This is the promotion step used after indexing into a
+  # versioned collection, so callers can switch the live logical target without
+  # changing model-level search bindings.
+  def self.promote_search_alias(collection_name, promoted_collection, alias_name: nil, reinitialize: true)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    alias_name ||= search_collection_target(collection_name)
+    alias_name = alias_name.to_sym
+    promoted_collection = promoted_collection.to_sym
+
+    connector = search_client(collection_name) ||
+                SOLR::SolrConnector.new(search_conf(existing_config[:search_backend]), alias_name)
+
+    connector.create_or_update_alias(alias_name, promoted_collection)
+    set_search_collection_target(collection_name, alias_name)
+
+    return init_search_connection(collection_name,
+                                  existing_config[:search_backend],
+                                  existing_config[:block],
+                                  force: true,
+                                  target_collection: alias_name,
+                                  initialize_collection: false) if reinitialize
+
+    reset_search_connection(collection_name)
+    connector
+  end
+
   def self.search_connections
     @@search_connection
   end
 
-  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false, target_collection: nil)
+  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false, target_collection: nil, initialize_collection: true)
     return @@search_connection[collection_name] if @@search_connection[collection_name] && !force
 
     target_collection ||= search_collection_target(collection_name)
@@ -330,7 +364,7 @@ module Goo
       block.call(@@search_connection[collection_name].schema_generator)
       @@search_connection[collection_name].enable_custom_schema
     end
-    @@search_connection[collection_name].init(force)
+    @@search_connection[collection_name].init(force) if initialize_collection
     @@search_connection[collection_name]
   end
 

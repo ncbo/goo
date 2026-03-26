@@ -8,7 +8,7 @@ module SOLR
 
   class SolrConnector
     include Schema, Administration, Query
-    attr_reader :solr
+    attr_reader :solr, :collection_name
 
     def initialize(solr_url, collection_name)
       @solr_url = solr_url
@@ -28,6 +28,8 @@ module SOLR
       @custom_schema = false
     end
 
+    alias physical_collection_name collection_name
+
     def init(force = false)
       return if collection_exists?(@collection_name) && !force
 
@@ -38,4 +40,3 @@ module SOLR
 
   end
 end
-
