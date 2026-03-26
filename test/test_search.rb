@@ -154,6 +154,20 @@ module TestSearch
       super(*args)
     end
 
+    def test_search_collection_target_defaults_to_logical_name
+      assert_equal :term_search, Goo.search_collection_target(:term_search)
+    end
+
+    def test_search_collection_target_can_be_overridden
+      Goo.add_search_connection(:logical_search_test, :main, target_collection: :physical_search_test)
+
+      assert_equal :physical_search_test, Goo.search_collection_target(:logical_search_test)
+
+      Goo.set_search_collection_target(:logical_search_test, :physical_search_test_v2)
+
+      assert_equal :physical_search_test_v2, Goo.search_collection_target(:logical_search_test)
+    end
+
     def test_search
       TermSearch.indexClear()
       @terms[1].index()

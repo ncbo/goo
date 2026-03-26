@@ -294,21 +294,38 @@ module Goo
     @@search_connection[collection_name]
   end
 
-  def self.add_search_connection(collection_name, search_backend = :main, &block)
+  def self.search_collection(collection_name)
+    @@search_collections[collection_name]
+  end
+
+  def self.search_collection_target(collection_name)
+    search_collection(collection_name)&.dig(:target_collection) || collection_name
+  end
+
+  def self.add_search_connection(collection_name, search_backend = :main, target_collection: nil, &block)
     @@search_collections[collection_name] = {
       search_backend: search_backend,
+      target_collection: (target_collection || collection_name).to_sym,
       block: block_given? ? block : nil
     }
+  end
+
+  def self.set_search_collection_target(collection_name, target_collection)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    @@search_collections[collection_name] = existing_config.merge(target_collection: target_collection.to_sym)
   end
 
   def self.search_connections
     @@search_connection
   end
 
-  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false)
+  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false, target_collection: nil)
     return @@search_connection[collection_name] if @@search_connection[collection_name] && !force
 
-    @@search_connection[collection_name] = SOLR::SolrConnector.new(search_conf(search_backend), collection_name)
+    target_collection ||= search_collection_target(collection_name)
+    @@search_connection[collection_name] = SOLR::SolrConnector.new(search_conf(search_backend), target_collection)
     if block
       block.call(@@search_connection[collection_name].schema_generator)
       @@search_connection[collection_name].enable_custom_schema
@@ -321,8 +338,9 @@ module Goo
   def self.init_search_connections(force=false)
     @@search_collections.each do |collection_name, backend|
       search_backend = backend[:search_backend]
+      target_collection = backend[:target_collection]
       block =  backend[:block]
-      init_search_connection(collection_name, search_backend, block, force: force)
+      init_search_connection(collection_name, search_backend, block, force: force, target_collection: target_collection)
     end
   end
 
