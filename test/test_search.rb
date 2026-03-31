@@ -200,6 +200,37 @@ module TestSearch
       end
     end
 
+    def test_alias_backed_search_connection_bootstraps_missing_alias
+      logical_collection = :bootstrap_alias_search
+      alias_name = :bootstrap_alias_search_active
+      bootstrap_collection = :bootstrap_alias_search_v1
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, alias_name)
+
+      begin
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(bootstrap_collection)
+
+        Goo.add_search_connection(logical_collection,
+                                  :main,
+                                  target_collection: alias_name,
+                                  bootstrap_collection: bootstrap_collection)
+
+        Goo.init_search_connection(logical_collection,
+                                   :main,
+                                   nil,
+                                   force: true,
+                                   target_collection: alias_name,
+                                   bootstrap_collection: bootstrap_collection)
+
+        assert_equal [bootstrap_collection.to_s], admin_connector.resolve_alias(alias_name)
+        assert_equal alias_name, Goo.search_client(logical_collection).collection_name.to_sym
+      ensure
+        Goo.reset_search_connection(logical_collection)
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(bootstrap_collection)
+      end
+    end
+
     def test_search
       TermSearch.indexClear()
       @terms[1].index()
