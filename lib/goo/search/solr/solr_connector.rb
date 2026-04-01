@@ -8,11 +8,13 @@ module SOLR
 
   class SolrConnector
     include Schema, Administration, Query
-    attr_reader :solr, :collection_name
+    attr_reader :solr, :collection_name, :num_shards, :replication_factor
 
-    def initialize(solr_url, collection_name)
+    def initialize(solr_url, collection_name, num_shards: 1, replication_factor: 1)
       @solr_url = solr_url
       @collection_name = collection_name
+      @num_shards = num_shards
+      @replication_factor = replication_factor
       @solr = RSolr.connect(url: collection_url)
 
       # Perform a status test and wait up to 30 seconds before raising an error
@@ -33,7 +35,7 @@ module SOLR
     def init(force = false)
       return if collection_exists?(@collection_name) && !force
 
-      create_collection
+      create_collection(@collection_name, @num_shards, @replication_factor)
 
       init_schema
     end

@@ -168,6 +168,43 @@ module TestSearch
       assert_equal :physical_search_test_v2, Goo.search_collection_target(:logical_search_test)
     end
 
+    def test_search_connection_can_store_collection_topology_settings
+      Goo.add_search_connection(:topology_search_test,
+                                :main,
+                                target_collection: :topology_search_target,
+                                num_shards: 2,
+                                replication_factor: 3)
+
+      search_config = Goo.search_collection(:topology_search_test)
+
+      assert_equal 2, search_config[:num_shards]
+      assert_equal 3, search_config[:replication_factor]
+    end
+
+    def test_search_connection_initialization_uses_collection_topology_settings
+      Goo.add_search_connection(:topology_runtime_test,
+                                :main,
+                                target_collection: :topology_runtime_target,
+                                num_shards: 4,
+                                replication_factor: 2)
+
+      Goo.init_search_connection(:topology_runtime_test,
+                                 :main,
+                                 nil,
+                                 force: true,
+                                 target_collection: :topology_runtime_target,
+                                 initialize_collection: false,
+                                 num_shards: 4,
+                                 replication_factor: 2)
+
+      connector = Goo.search_client(:topology_runtime_test)
+
+      assert_equal 4, connector.num_shards
+      assert_equal 2, connector.replication_factor
+    ensure
+      Goo.reset_search_connection(:topology_runtime_test)
+    end
+
     def test_promote_search_alias_retargets_logical_connection
       logical_collection = :logical_alias_search
       alias_name = :logical_alias_search_active

@@ -119,7 +119,7 @@ module Goo
         !@model_settings[:search_collection].nil?
       end
 
-      def enable_indexing(collection_name, search_backend = :main, target_collection: nil, bootstrap_collection: nil, &block)
+      def enable_indexing(collection_name, search_backend = :main, target_collection: nil, bootstrap_collection: nil, num_shards: 1, replication_factor: 1, &block)
         @model_settings[:search_collection] = collection_name
 
         if block_given?
@@ -128,12 +128,16 @@ module Goo
                                     search_backend,
                                     target_collection: target_collection,
                                     bootstrap_collection: bootstrap_collection,
+                                    num_shards: num_shards,
+                                    replication_factor: replication_factor,
                                     &block)
         else
           Goo.add_search_connection(collection_name,
                                     search_backend,
                                     target_collection: target_collection,
-                                    bootstrap_collection: bootstrap_collection)
+                                    bootstrap_collection: bootstrap_collection,
+                                    num_shards: num_shards,
+                                    replication_factor: replication_factor)
         end
 
         after_save :index
