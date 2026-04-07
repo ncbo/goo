@@ -2,13 +2,18 @@ module Goo
   module Validators
     class Email < ValidatorBase
       include Validator
-      # Matches reasonably valid emails (no double dots, no leading/trailing dots or hyphens, valid domain)
+      DOMAIN_LABEL = /(?!-)[a-z0-9-]{1,63}(?<!-)/
+      TLD_LABEL = /(?:[a-z]{2,}|xn--(?!-)[a-z0-9-]{1,59}(?<!-))/
+
+      # Matches reasonably valid ASCII email addresses.
+      # This validator intentionally does not support non-ASCII local parts or Unicode domains;
+      # internationalized domains must be provided in ASCII punycode form.
       EMAIL_REGEXP = /\A
       [a-z0-9!#$%&'*+\/=?^_`{|}~-]+             # local part
       (?:\.[a-z0-9!#$%&'*+\/=?^_`{|}~-]+)*       # dot-separated continuation in local
       @
-      (?:(?!-)[a-z0-9-]{1,63}(?<!-)\.)+          # domain labels
-      [a-z]{2,}                                  # top-level domain (at least 2 chars)
+      (?:#{DOMAIN_LABEL}\.)+                     # domain labels
+      #{TLD_LABEL}                               # top-level domain or punycode TLD
       \z/ix
 
       MIN_LENGTH = 6       # Smallest valid email: a@b.cd

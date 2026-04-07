@@ -28,6 +28,9 @@ module Goo
         assert_valid "john.doe+test@sub.domain.org"
         assert_valid "a_b-c@foo-bar.co.uk"
         assert_valid "user123@domain.io"
+        # punycode TLD domains
+        assert_valid "user@example.xn--p1ai"
+        assert_valid "user@sub.domain.xn--p1ai"
       end
 
       def test_invalid_emails_structure
@@ -43,6 +46,15 @@ module Goo
         assert_invalid "user..user@example.com"
         assert_invalid "user@domain..com"
         assert_invalid "user@"
+        assert_invalid "user@example.xn--"
+        assert_invalid "user@example.-xn--p1ai"
+        assert_invalid "user@example.xn--p1ai-"
+      end
+
+      def test_non_ascii_email_addresses
+        assert_invalid "usér@example.com"
+        assert_invalid "user@exämple.com"
+        assert_invalid "用户@例子.公司"
       end
 
       def test_email_length_limits
