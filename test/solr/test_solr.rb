@@ -5,12 +5,14 @@ require 'benchmark'
 class TestSolr < MiniTest::Unit::TestCase
   def self.before_suite
     @@connector = SOLR::SolrConnector.new(Goo.search_conf, 'test')
-    @@connector.delete_collection('test')
+    @@connector.delete_alias('test')
+    @@connector.delete_collection('test_v1')
     @@connector.init
   end
 
   def self.after_suite
-    @@connector.delete_collection('test')
+    @@connector.delete_alias('test')
+    @@connector.delete_collection('test_v1')
   end
 
   def test_add_collection
@@ -111,17 +113,39 @@ class TestSolr < MiniTest::Unit::TestCase
     assert_nil field
   end
 
+  def test_alias_aware_init
+    connector = @@connector
+
+    # init should have created a versioned collection and an alias
+    assert connector.collection_exists?('test_v1'), 'Expected test_v1 collection to exist'
+    assert connector.alias_exists?('test'), 'Expected test alias to exist'
+    assert_equal 'test_v1', connector.resolve_alias('test')
+    assert_equal 'test', connector.alias_name
+    assert_equal 'test_v1', connector.collection_name
+  end
+
+  def test_alias_aware_init_skips_when_alias_exists
+    # Create a fresh connector with the same alias name
+    connector2 = SOLR::SolrConnector.new(Goo.search_conf, 'test')
+    connector2.init
+
+    # Should reuse existing alias and collection, not create test_v1 again
+    assert connector2.alias_exists?('test')
+    assert_equal 'test_v1', connector2.resolve_alias('test')
+    assert_equal 'test_v1', connector2.collection_name
+  end
+
   def test_list_aliases
     connector = @@connector
     # Clean up in case of prior failed run
     connector.delete_alias('test_alias')
 
     aliases_before = connector.list_aliases
-    connector.create_alias('test_alias', 'test')
+    connector.create_alias('test_alias', 'test_v1')
     aliases_after = connector.list_aliases
 
     assert_equal aliases_after.size, aliases_before.size + 1
-    assert_equal 'test', aliases_after['test_alias']
+    assert_equal 'test_v1', aliases_after['test_alias']
 
     connector.delete_alias('test_alias')
   end
@@ -132,7 +156,7 @@ class TestSolr < MiniTest::Unit::TestCase
 
     refute connector.alias_exists?('test_alias')
 
-    connector.create_alias('test_alias', 'test')
+    connector.create_alias('test_alias', 'test_v1')
     assert connector.alias_exists?('test_alias')
 
     connector.delete_alias('test_alias')
@@ -144,8 +168,8 @@ class TestSolr < MiniTest::Unit::TestCase
 
     assert_nil connector.resolve_alias('test_alias')
 
-    connector.create_alias('test_alias', 'test')
-    assert_equal 'test', connector.resolve_alias('test_alias')
+    connector.create_alias('test_alias', 'test_v1')
+    assert_equal 'test_v1', connector.resolve_alias('test_alias')
 
     connector.delete_alias('test_alias')
   end
@@ -154,9 +178,9 @@ class TestSolr < MiniTest::Unit::TestCase
     connector = @@connector
     connector.delete_alias('test_alias')
 
-    connector.create_alias('test_alias', 'test')
+    connector.create_alias('test_alias', 'test_v1')
     assert connector.alias_exists?('test_alias')
-    assert_equal 'test', connector.resolve_alias('test_alias')
+    assert_equal 'test_v1', connector.resolve_alias('test_alias')
 
     connector.delete_alias('test_alias')
   end
@@ -166,8 +190,8 @@ class TestSolr < MiniTest::Unit::TestCase
     connector.create_collection('test3')
     connector.delete_alias('test_alias')
 
-    connector.create_alias('test_alias', 'test')
-    assert_equal 'test', connector.resolve_alias('test_alias')
+    connector.create_alias('test_alias', 'test_v1')
+    assert_equal 'test_v1', connector.resolve_alias('test_alias')
 
     # CREATEALIAS overwrites atomically — this is the swap mechanism
     connector.create_alias('test_alias', 'test3')
@@ -181,7 +205,7 @@ class TestSolr < MiniTest::Unit::TestCase
     connector = @@connector
     connector.delete_alias('test_alias')
 
-    connector.create_alias('test_alias', 'test')
+    connector.create_alias('test_alias', 'test_v1')
     assert connector.alias_exists?('test_alias')
 
     connector.delete_alias('test_alias')
