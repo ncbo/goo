@@ -111,6 +111,90 @@ class TestSolr < MiniTest::Unit::TestCase
     assert_nil field
   end
 
+  def test_list_aliases
+    connector = @@connector
+    # Clean up in case of prior failed run
+    connector.delete_alias('test_alias')
+
+    aliases_before = connector.list_aliases
+    connector.create_alias('test_alias', 'test')
+    aliases_after = connector.list_aliases
+
+    assert_equal aliases_after.size, aliases_before.size + 1
+    assert_equal 'test', aliases_after['test_alias']
+
+    connector.delete_alias('test_alias')
+  end
+
+  def test_alias_exists
+    connector = @@connector
+    connector.delete_alias('test_alias')
+
+    refute connector.alias_exists?('test_alias')
+
+    connector.create_alias('test_alias', 'test')
+    assert connector.alias_exists?('test_alias')
+
+    connector.delete_alias('test_alias')
+  end
+
+  def test_resolve_alias
+    connector = @@connector
+    connector.delete_alias('test_alias')
+
+    assert_nil connector.resolve_alias('test_alias')
+
+    connector.create_alias('test_alias', 'test')
+    assert_equal 'test', connector.resolve_alias('test_alias')
+
+    connector.delete_alias('test_alias')
+  end
+
+  def test_create_alias
+    connector = @@connector
+    connector.delete_alias('test_alias')
+
+    connector.create_alias('test_alias', 'test')
+    assert connector.alias_exists?('test_alias')
+    assert_equal 'test', connector.resolve_alias('test_alias')
+
+    connector.delete_alias('test_alias')
+  end
+
+  def test_create_alias_overwrites_existing
+    connector = @@connector
+    connector.create_collection('test3')
+    connector.delete_alias('test_alias')
+
+    connector.create_alias('test_alias', 'test')
+    assert_equal 'test', connector.resolve_alias('test_alias')
+
+    # CREATEALIAS overwrites atomically — this is the swap mechanism
+    connector.create_alias('test_alias', 'test3')
+    assert_equal 'test3', connector.resolve_alias('test_alias')
+
+    connector.delete_alias('test_alias')
+    connector.delete_collection('test3')
+  end
+
+  def test_delete_alias
+    connector = @@connector
+    connector.delete_alias('test_alias')
+
+    connector.create_alias('test_alias', 'test')
+    assert connector.alias_exists?('test_alias')
+
+    connector.delete_alias('test_alias')
+    refute connector.alias_exists?('test_alias')
+  end
+
+  def test_delete_alias_nonexistent_is_noop
+    connector = @@connector
+    connector.delete_alias('nonexistent_alias')
+    # Should not raise — just returns silently
+    refute connector.alias_exists?('nonexistent_alias')
+  end
+
   private
 
   def add_field(name, connector)
