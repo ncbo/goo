@@ -141,6 +141,11 @@ module Goo
         Goo.search_client(connection_name)
       end
 
+      # Returns the SolrConnector for the reindex collection (if one has been created).
+      def reindex_client
+        Goo.reindex_client(search_collection_name)
+      end
+
       def custom_schema?(connection_name = search_collection_name)
         search_client(connection_name)&.custom_schema?
       end
