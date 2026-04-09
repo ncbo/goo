@@ -42,6 +42,7 @@ module Goo
   @@search_backends = {}
   @@search_connection = {}
   @@search_collections = {}
+  @@reindex_connection = {}
   @@default_namespace = nil
   @@id_prefix = nil
   @@redis_client = nil
@@ -294,9 +295,10 @@ module Goo
     @@search_connection[collection_name]
   end
 
-  def self.add_search_connection(collection_name, search_backend = :main, &block)
+  def self.add_search_connection(collection_name, search_backend = :main, bootstrap_collection: nil, &block)
     @@search_collections[collection_name] = {
       search_backend: search_backend,
+      bootstrap_collection: bootstrap_collection,
       block: block_given? ? block : nil
     }
   end
@@ -305,7 +307,7 @@ module Goo
     @@search_connection
   end
 
-  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false)
+  def self.init_search_connection(collection_name, search_backend = :main, block = nil, bootstrap_collection: nil, force: false)
     return @@search_connection[collection_name] if @@search_connection[collection_name] && !force
 
     @@search_connection[collection_name] = SOLR::SolrConnector.new(search_conf(search_backend), collection_name)
@@ -313,17 +315,58 @@ module Goo
       block.call(@@search_connection[collection_name].schema_generator)
       @@search_connection[collection_name].enable_custom_schema
     end
-    @@search_connection[collection_name].init(force)
+    @@search_connection[collection_name].init(force: force, bootstrap_collection: bootstrap_collection)
     @@search_connection[collection_name]
   end
-
 
   def self.init_search_connections(force=false)
     @@search_collections.each do |collection_name, backend|
       search_backend = backend[:search_backend]
-      block =  backend[:block]
-      init_search_connection(collection_name, search_backend, block, force: force)
+      block = backend[:block]
+      bootstrap_collection = backend[:bootstrap_collection]
+      init_search_connection(collection_name, search_backend, block, bootstrap_collection: bootstrap_collection, force: force)
     end
+  end
+
+  # --- Re-index workflow ---
+
+  # Creates a new collection for re-indexing and returns a SolrConnector to it.
+  # The alias is NOT swapped — call complete_reindex after indexing is done.
+  def self.create_reindex_connection(alias_name, new_collection_name)
+    live_connector = @@search_connection[alias_name]
+    raise ArgumentError, "No live connection found for alias '#{alias_name}'" unless live_connector
+
+    live_connector.create_reindex_collection(new_collection_name)
+
+    # Create a SolrConnector that points directly at the new physical collection
+    backend_info = @@search_collections[alias_name]
+    search_backend = backend_info[:search_backend]
+    @@reindex_connection[alias_name] = SOLR::SolrConnector.new(search_conf(search_backend), new_collection_name)
+
+    # Schema is already initialized by create_reindex_collection,
+    # so skip init — just apply custom schema flag if needed
+    if backend_info[:block]
+      backend_info[:block].call(@@reindex_connection[alias_name].schema_generator)
+      @@reindex_connection[alias_name].enable_custom_schema
+    end
+
+    @@reindex_connection[alias_name]
+  end
+
+  # Returns the reindex SolrConnector for a given alias.
+  def self.reindex_client(alias_name)
+    @@reindex_connection[alias_name]
+  end
+
+  # Swaps the alias to the reindex collection and cleans up.
+  def self.complete_reindex(alias_name)
+    reindex_conn = @@reindex_connection[alias_name]
+    raise ArgumentError, "No reindex connection found for alias '#{alias_name}'" unless reindex_conn
+
+    live_connector = @@search_connection[alias_name]
+    live_connector.swap_alias_and_delete_old(reindex_conn.collection_name)
+
+    @@reindex_connection.delete(alias_name)
   end
 
   def self.sparql_query_client(name=:main)
