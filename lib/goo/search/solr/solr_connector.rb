@@ -67,10 +67,10 @@ module SOLR
       new_name
     end
 
-    # Atomically swaps the alias to point to a new collection and deletes the old one.
-    # Updates @collection_name to reflect the new target.
-    def swap_alias_and_delete_old(new_collection_name)
-      raise "Alias swap requires an aliased connector" unless aliased?
+    # Atomically swaps the alias to point to a new collection.
+    # Returns the old collection name. Updates @collection_name to reflect the new target.
+    def promote_alias(new_collection_name)
+      raise "Alias promotion requires an aliased connector" unless aliased?
 
       new_name = new_collection_name.to_s
       raise ArgumentError, "Collection '#{new_name}' does not exist" unless collection_exists?(new_name)
@@ -79,7 +79,14 @@ module SOLR
       create_alias(@alias_name.to_s, new_name)
       @collection_name = new_name
 
-      delete_collection(old_collection) if old_collection && old_collection != new_name
+      old_collection
+    end
+
+    # Atomically swaps the alias to point to a new collection and deletes the old one.
+    # Updates @collection_name to reflect the new target.
+    def swap_alias_and_delete_old(new_collection_name)
+      old_collection = promote_alias(new_collection_name)
+      delete_collection(old_collection) if old_collection && old_collection != @collection_name
     end
 
     private

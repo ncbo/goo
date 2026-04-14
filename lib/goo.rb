@@ -358,7 +358,7 @@ module Goo
     @@reindex_connection[alias_name]
   end
 
-  # Swaps the alias to the reindex collection and cleans up.
+  # Swaps the alias to the reindex collection and cleans up (deletes old collection).
   def self.complete_reindex(alias_name)
     reindex_conn = @@reindex_connection[alias_name]
     raise ArgumentError, "No reindex connection found for alias '#{alias_name}'" unless reindex_conn
@@ -367,6 +367,15 @@ module Goo
     live_connector.swap_alias_and_delete_old(reindex_conn.collection_name)
 
     @@reindex_connection.delete(alias_name)
+  end
+
+  # Promotes an alias to point to an existing collection without deleting the old one.
+  # Does not require a prior create_reindex_connection call.
+  def self.promote_alias(alias_name, new_collection_name)
+    live_connector = @@search_connection[alias_name]
+    raise ArgumentError, "No live connection found for alias '#{alias_name}'" unless live_connector
+
+    live_connector.promote_alias(new_collection_name)
   end
 
   def self.sparql_query_client(name=:main)
