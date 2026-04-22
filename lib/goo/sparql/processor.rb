@@ -18,12 +18,12 @@ module Goo
           return @result
         end
 
-        @include << @include_embed if @include_embed.length > 0
+        effective_include = @include_embed.empty? ? @include : @include + [@include_embed]
 
         @predicates = unmmaped_predicates()
         @equivalent_predicates = retrieve_equivalent_predicates()
 
-        options_load = { models: @models, include: @include, ids: @ids,
+        options_load = { models: @models, include: effective_include, ids: @ids,
                          graph_match: @pattern, klass: @klass,
                          filters: @filters, order_by: @order_by ,
                          read_only: @read_only, rules: @rules,
@@ -45,7 +45,7 @@ module Goo
         if @page_i && !use_redis_index?
           page_options = options_load.dup
           page_options.delete(:include)
-          page_options[:include_pagination] = @include
+          page_options[:include_pagination] = effective_include
           page_options[:query_options] = @query_options
 
           @count = run_count_query(page_options)

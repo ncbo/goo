@@ -284,6 +284,36 @@ class TestWhere < MiniTest::Unit::TestCase
     assert_equal total_count, page_1.size + page_2.size
   end
 
+  def test_paged_where_with_embed_include_is_reusable
+    # Force the sliced load path — otherwise get_includes' delete_if
+    # strips the embed hash from @include and hides the accumulation across pages.
+    original_slice = Goo.slice_loading_size
+    Goo.slice_loading_size = 1
+    begin
+      page_size = 2
+      paging = Student.where.include(:name, :birth_date, enrolled: [:name]).page(1, page_size)
+
+      page_1 = paging.page(1, page_size).all
+      refute_empty page_1, 'page 1 should return students'
+
+      page_2 = nil
+      begin
+        page_2 = paging.page(2, page_size).all
+      rescue ArgumentError => e
+        flunk "reusing Where across pages should not raise (got: #{e.message})"
+      end
+
+      refute_empty page_2, 'page 2 should return more students'
+
+      (page_1 + page_2).each do |student|
+        assert_instance_of String, student.name
+        student.enrolled
+      end
+    ensure
+      Goo.slice_loading_size = original_slice
+    end
+  end
+
   def test_two_level_include
     programs = Program.where.include(:name).all
     r = Program.where.models(programs).include(students: [:name]).all
