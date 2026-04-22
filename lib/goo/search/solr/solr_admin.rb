@@ -74,6 +74,57 @@ module SOLR
     def collection_exists?(collection_name)
       fetch_all_collections.include?(collection_name.to_s)
     end
+
+    def list_aliases
+      aliases_url = URI.parse("#{admin_url}/collections?action=LISTALIASES")
+      http = Net::HTTP.new(aliases_url.host, aliases_url.port)
+      request = Net::HTTP::Get.new(aliases_url.request_uri)
+
+      begin
+        response = http.request(request)
+        raise StandardError, "Failed to fetch aliases. HTTP #{response.code}: #{response.message}" unless response.code.to_i == 200
+      rescue StandardError => e
+        raise StandardError, "Failed to fetch aliases. #{e.message}"
+      end
+
+      JSON.parse(response.body).fetch('aliases', {})
+    end
+
+    def alias_exists?(alias_name)
+      list_aliases.key?(alias_name.to_s)
+    end
+
+    def resolve_alias(alias_name)
+      list_aliases[alias_name.to_s]
+    end
+
+    def create_alias(alias_name, collection_name)
+      alias_url = URI.parse("#{admin_url}/collections?action=CREATEALIAS&name=#{alias_name}&collections=#{collection_name}")
+      http = Net::HTTP.new(alias_url.host, alias_url.port)
+      request = Net::HTTP::Post.new(alias_url.request_uri)
+
+      begin
+        response = http.request(request)
+        raise StandardError, "Failed to create alias. HTTP #{response.code}: #{response.message}" unless response.code.to_i == 200
+      rescue StandardError => e
+        raise StandardError, "Failed to create alias. #{e.message}"
+      end
+    end
+
+    def delete_alias(alias_name)
+      return unless alias_exists?(alias_name)
+
+      alias_url = URI.parse("#{admin_url}/collections?action=DELETEALIAS&name=#{alias_name}")
+      http = Net::HTTP.new(alias_url.host, alias_url.port)
+      request = Net::HTTP::Post.new(alias_url.request_uri)
+
+      begin
+        response = http.request(request)
+        raise StandardError, "Failed to delete alias. HTTP #{response.code}: #{response.message}" unless response.code.to_i == 200
+      rescue StandardError => e
+        raise StandardError, "Failed to delete alias. #{e.message}"
+      end
+    end
   end
 end
 

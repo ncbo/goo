@@ -119,14 +119,13 @@ module Goo
         !@model_settings[:search_collection].nil?
       end
 
-      def enable_indexing(collection_name, search_backend = :main, &block)
+      def enable_indexing(collection_name, search_backend = :main, bootstrap_collection: nil, &block)
         @model_settings[:search_collection] = collection_name
 
         if block_given?
-          # optional block to generate custom schema
-          Goo.add_search_connection(collection_name, search_backend, &block)
+          Goo.add_search_connection(collection_name, search_backend, bootstrap_collection: bootstrap_collection, &block)
         else
-          Goo.add_search_connection(collection_name, search_backend)
+          Goo.add_search_connection(collection_name, search_backend, bootstrap_collection: bootstrap_collection)
         end
 
         after_save :index
@@ -139,6 +138,11 @@ module Goo
 
       def search_client(connection_name = search_collection_name)
         Goo.search_client(connection_name)
+      end
+
+      # Returns the SolrConnector for the reindex collection (if one has been created).
+      def reindex_client
+        Goo.reindex_client(search_collection_name)
       end
 
       def custom_schema?(connection_name = search_collection_name)
