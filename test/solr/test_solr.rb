@@ -5,12 +5,18 @@ require 'benchmark'
 class TestSolr < MiniTest::Unit::TestCase
   def self.before_suite
     @@connector = SOLR::SolrConnector.new(Goo.search_conf, 'test')
+    @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
+    @@connector.delete_collection('test2')
+    @@connector.delete_collection('test3')
     @@connector.init
   end
 
   def self.after_suite
+    @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
+    @@connector.delete_collection('test2')
+    @@connector.delete_collection('test3')
   end
 
   def test_add_collection
@@ -27,6 +33,26 @@ class TestSolr < MiniTest::Unit::TestCase
 
     all_collections = connector.fetch_all_collections
     refute_includes all_collections, 'test2'
+  end
+
+  def test_alias_lifecycle
+    connector = @@connector
+    connector.create_collection('test2')
+    connector.create_collection('test3')
+
+    connector.create_or_update_alias('test_alias', 'test2')
+
+    assert connector.alias_exists?('test_alias')
+    assert_equal ['test2'], connector.resolve_alias('test_alias')
+
+    connector.create_or_update_alias('test_alias', %w[test2 test3])
+
+    assert_equal %w[test2 test3], connector.resolve_alias('test_alias')
+
+    connector.delete_alias('test_alias')
+
+    refute connector.alias_exists?('test_alias')
+    assert_equal [], connector.resolve_alias('test_alias')
   end
 
   def test_schema_generator

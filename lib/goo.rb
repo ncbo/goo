@@ -294,26 +294,97 @@ module Goo
     @@search_connection[collection_name]
   end
 
-  def self.add_search_connection(collection_name, search_backend = :main, &block)
+  def self.search_collection(collection_name)
+    @@search_collections[collection_name]
+  end
+
+  def self.search_collection_target(collection_name)
+    search_collection(collection_name)&.dig(:target_collection) || collection_name
+  end
+
+  def self.search_collection_bootstrap_target(collection_name)
+    search_collection(collection_name)&.dig(:bootstrap_collection) || search_collection_target(collection_name)
+  end
+
+  def self.add_search_connection(collection_name, search_backend = :main, target_collection: nil, bootstrap_collection: nil, num_shards: 1, replication_factor: 1, &block)
+    target_collection ||= collection_name
     @@search_collections[collection_name] = {
       search_backend: search_backend,
+      target_collection: target_collection.to_sym,
+      bootstrap_collection: (bootstrap_collection || target_collection).to_sym,
+      num_shards: num_shards,
+      replication_factor: replication_factor,
       block: block_given? ? block : nil
     }
+  end
+
+  def self.set_search_collection_target(collection_name, target_collection)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    @@search_collections[collection_name] = existing_config.merge(target_collection: target_collection.to_sym)
+  end
+
+  def self.reset_search_connection(collection_name)
+    @@search_connection.delete(collection_name)
+  end
+
+  # Atomically repoints a logical Goo search connection to a rebuilt Solr collection
+  # by updating a Solr alias and optionally reinitializing the cached connector
+  # against that alias. This is the promotion step used after indexing into a
+  # versioned collection, so callers can switch the live logical target without
+  # changing model-level search bindings.
+  def self.promote_search_alias(collection_name, promoted_collection, alias_name: nil, reinitialize: true)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    alias_name ||= search_collection_target(collection_name)
+    alias_name = alias_name.to_sym
+    promoted_collection = promoted_collection.to_sym
+
+    connector = search_client(collection_name) ||
+                SOLR::SolrConnector.new(search_conf(existing_config[:search_backend]), alias_name)
+
+    connector.create_or_update_alias(alias_name, promoted_collection)
+    set_search_collection_target(collection_name, alias_name)
+
+    return init_search_connection(collection_name,
+                                  existing_config[:search_backend],
+                                  existing_config[:block],
+                                  force: true,
+                                  target_collection: alias_name,
+                                  initialize_collection: false) if reinitialize
+
+    reset_search_connection(collection_name)
+    connector
   end
 
   def self.search_connections
     @@search_connection
   end
 
-  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false)
+  def self.init_search_connection(collection_name, search_backend = :main,  block = nil, force: false, target_collection: nil, initialize_collection: true, bootstrap_collection: nil, num_shards: 1, replication_factor: 1)
     return @@search_connection[collection_name] if @@search_connection[collection_name] && !force
 
-    @@search_connection[collection_name] = SOLR::SolrConnector.new(search_conf(search_backend), collection_name)
-    if block
-      block.call(@@search_connection[collection_name].schema_generator)
-      @@search_connection[collection_name].enable_custom_schema
+    target_collection ||= search_collection_target(collection_name)
+    bootstrap_collection ||= search_collection_bootstrap_target(collection_name)
+    if initialize_collection && target_collection.to_sym != bootstrap_collection.to_sym
+      @@search_connection[collection_name] = initialize_alias_backed_search_connection(search_backend,
+                                                                                       target_collection,
+                                                                                       bootstrap_collection,
+                                                                                       block,
+                                                                                       num_shards: num_shards,
+                                                                                       replication_factor: replication_factor,
+                                                                                       force: force)
+    else
+      @@search_connection[collection_name] = build_search_connection(search_backend,
+                                                                     target_collection,
+                                                                     block,
+                                                                     num_shards: num_shards,
+                                                                     replication_factor: replication_factor)
+      @@search_connection[collection_name].init(force) if initialize_collection
     end
-    @@search_connection[collection_name].init(force)
+
     @@search_connection[collection_name]
   end
 
@@ -321,9 +392,56 @@ module Goo
   def self.init_search_connections(force=false)
     @@search_collections.each do |collection_name, backend|
       search_backend = backend[:search_backend]
+      target_collection = backend[:target_collection]
+      bootstrap_collection = backend[:bootstrap_collection]
+      num_shards = backend[:num_shards]
+      replication_factor = backend[:replication_factor]
       block =  backend[:block]
-      init_search_connection(collection_name, search_backend, block, force: force)
+      init_search_connection(collection_name,
+                             search_backend,
+                             block,
+                             force: force,
+                             target_collection: target_collection,
+                             bootstrap_collection: bootstrap_collection,
+                             num_shards: num_shards,
+                             replication_factor: replication_factor)
     end
+  end
+
+  private
+
+  def self.build_search_connection(search_backend, target_collection, block = nil, num_shards: 1, replication_factor: 1)
+    connector = SOLR::SolrConnector.new(search_conf(search_backend),
+                                        target_collection,
+                                        num_shards: num_shards,
+                                        replication_factor: replication_factor)
+    if block
+      block.call(connector.schema_generator)
+      connector.enable_custom_schema
+    end
+    connector
+  end
+
+  def self.initialize_alias_backed_search_connection(search_backend, alias_name, bootstrap_collection, block, num_shards: 1, replication_factor: 1, force: false)
+    alias_connector = SOLR::SolrConnector.new(search_conf(search_backend),
+                                              alias_name,
+                                              num_shards: num_shards,
+                                              replication_factor: replication_factor)
+    unless alias_connector.alias_exists?(alias_name)
+      bootstrap_connector = build_search_connection(search_backend,
+                                                   bootstrap_collection,
+                                                   block,
+                                                   num_shards: num_shards,
+                                                   replication_factor: replication_factor)
+      bootstrap_connector.init(force)
+      alias_connector.create_or_update_alias(alias_name, bootstrap_collection)
+    end
+
+    build_search_connection(search_backend,
+                            alias_name,
+                            block,
+                            num_shards: num_shards,
+                            replication_factor: replication_factor)
   end
 
   def self.sparql_query_client(name=:main)
