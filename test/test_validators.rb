@@ -129,6 +129,12 @@ class TestValidators < MiniTest::Unit::TestCase
     p.username = "good.username"
     assert p.valid?
 
+    p.username = "admin"
+    assert p.valid?
+
+    p.username = "administrator"
+    assert p.valid?
+
     p.username = "bad-username"
     refute p.valid?
 
@@ -136,6 +142,18 @@ class TestValidators < MiniTest::Unit::TestCase
     refute p.valid?
 
     p.username = "badusername with spaces"
+    refute p.valid?
+
+    p.username = " goodusername"
+    refute p.valid?
+
+    p.username = "goodusername "
+    refute p.valid?
+
+    p.username = " goodusername "
+    refute p.valid?
+
+    p.username = "root"
     refute p.valid?
 
     p.username = "<input type=\"text\" value=\"jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(2)//>\\x3e\"></input>"
