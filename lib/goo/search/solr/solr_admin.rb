@@ -42,12 +42,15 @@ module SOLR
 
     def create_collection(name = @collection_name, num_shards = 1, replication_factor = 1)
       return if collection_exists?(name)
-      admin_post("collections?action=CREATE&name=#{name}&numShards=#{num_shards}&replicationFactor=#{replication_factor}", 'create collection')
+      admin_post(collections_path(action: 'CREATE',
+                                  name: name,
+                                  numShards: num_shards,
+                                  replicationFactor: replication_factor), 'create collection')
     end
 
     def delete_collection(collection_name = @collection_name)
       return unless collection_exists?(collection_name)
-      admin_post("collections?action=DELETE&name=#{collection_name}", 'delete collection')
+      admin_post(collections_path(action: 'DELETE', name: collection_name), 'delete collection')
     end
 
     def collection_exists?(collection_name)
@@ -58,13 +61,17 @@ module SOLR
       target_collections = Array(collections).map(&:to_s).reject(&:empty?)
       raise ArgumentError, 'At least one collection must be provided to create an alias' if target_collections.empty?
 
-      admin_post("collections?action=CREATEALIAS&name=#{alias_name}&collections=#{target_collections.join(',')}", 'create alias')
+      admin_post(collections_path(action: 'CREATEALIAS',
+                                  name: alias_name,
+                                  collections: target_collections.join(',')), 'create alias')
     end
+
+    alias create_alias create_or_update_alias
 
     def delete_alias(alias_name)
       return unless alias_exists?(alias_name)
 
-      admin_post("collections?action=DELETEALIAS&name=#{alias_name}", 'delete alias')
+      admin_post(collections_path(action: 'DELETEALIAS', name: alias_name), 'delete alias')
     end
 
     def alias_exists?(alias_name)
@@ -79,6 +86,10 @@ module SOLR
     end
 
     private
+
+    def collections_path(params)
+      "collections?#{URI.encode_www_form(params)}"
+    end
 
     def admin_get(path, action)
       admin_request(Net::HTTP::Get, path, action)

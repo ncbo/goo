@@ -345,7 +345,7 @@ module Goo
     connector = search_client(collection_name) ||
                 SOLR::SolrConnector.new(search_conf(existing_config[:search_backend]), alias_name)
 
-    connector.create_or_update_alias(alias_name, promoted_collection)
+    connector.promote_alias(promoted_collection, alias_name: alias_name)
     set_search_collection_target(collection_name, alias_name)
 
     return init_search_connection(collection_name,
@@ -359,6 +359,10 @@ module Goo
     connector
   end
 
+  def self.promote_alias(collection_name, promoted_collection, alias_name: nil, reinitialize: true)
+    promote_search_alias(collection_name, promoted_collection, alias_name: alias_name, reinitialize: reinitialize)
+  end
+
   def self.search_connections
     @@search_connection
   end
@@ -368,22 +372,12 @@ module Goo
 
     target_collection ||= search_collection_target(collection_name)
     bootstrap_collection ||= search_collection_bootstrap_target(collection_name)
-    if initialize_collection && target_collection.to_sym != bootstrap_collection.to_sym
-      @@search_connection[collection_name] = initialize_alias_backed_search_connection(search_backend,
-                                                                                       target_collection,
-                                                                                       bootstrap_collection,
-                                                                                       block,
-                                                                                       num_shards: num_shards,
-                                                                                       replication_factor: replication_factor,
-                                                                                       force: force)
-    else
-      @@search_connection[collection_name] = build_search_connection(search_backend,
-                                                                     target_collection,
-                                                                     block,
-                                                                     num_shards: num_shards,
-                                                                     replication_factor: replication_factor)
-      @@search_connection[collection_name].init(force) if initialize_collection
-    end
+    @@search_connection[collection_name] = build_search_connection(search_backend,
+                                                                   target_collection,
+                                                                   block,
+                                                                   num_shards: num_shards,
+                                                                   replication_factor: replication_factor)
+    @@search_connection[collection_name].init(force, bootstrap_collection: bootstrap_collection) if initialize_collection
 
     @@search_connection[collection_name]
   end
@@ -420,28 +414,6 @@ module Goo
       connector.enable_custom_schema
     end
     connector
-  end
-
-  def self.initialize_alias_backed_search_connection(search_backend, alias_name, bootstrap_collection, block, num_shards: 1, replication_factor: 1, force: false)
-    alias_connector = SOLR::SolrConnector.new(search_conf(search_backend),
-                                              alias_name,
-                                              num_shards: num_shards,
-                                              replication_factor: replication_factor)
-    unless alias_connector.alias_exists?(alias_name)
-      bootstrap_connector = build_search_connection(search_backend,
-                                                   bootstrap_collection,
-                                                   block,
-                                                   num_shards: num_shards,
-                                                   replication_factor: replication_factor)
-      bootstrap_connector.init(force)
-      alias_connector.create_or_update_alias(alias_name, bootstrap_collection)
-    end
-
-    build_search_connection(search_backend,
-                            alias_name,
-                            block,
-                            num_shards: num_shards,
-                            replication_factor: replication_factor)
   end
 
   def self.sparql_query_client(name=:main)

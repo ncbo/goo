@@ -9,6 +9,8 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test')
     @@connector.delete_collection('test2')
     @@connector.delete_collection('test3')
+    @@connector.delete_collection('test_reindex')
+    @@connector.delete_collection('test_schema_generator')
     @@connector.init
   end
 
@@ -17,6 +19,8 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test')
     @@connector.delete_collection('test2')
     @@connector.delete_collection('test3')
+    @@connector.delete_collection('test_reindex')
+    @@connector.delete_collection('test_schema_generator')
   end
 
   def test_add_collection
@@ -55,63 +59,123 @@ class TestSolr < MiniTest::Unit::TestCase
     assert_equal [], connector.resolve_alias('test_alias')
   end
 
-  def test_schema_generator
+  def test_create_reindex_collection_initializes_physical_collection
     connector = @@connector
+    connector.delete_collection('test_reindex')
 
-    all_fields = connector.all_fields
+    connector.create_reindex_collection('test_reindex')
 
-    connector.schema_generator.fields_to_add.each do |f|
-      field = all_fields.select { |x| x["name"].eql?(f[:name]) }.first
-      refute_nil field
-      assert_equal field["type"], f[:type]
-      assert_equal field["indexed"], f[:indexed]
-      assert_equal field["stored"], f[:stored]
-      assert_equal field["multiValued"], f[:multiValued]
-    end
+    assert connector.collection_exists?('test_reindex')
+    assert_equal 'test', connector.collection_name
+  ensure
+    connector.delete_collection('test_reindex')
+  end
 
-    copy_fields = connector.all_copy_fields
-    connector.schema_generator.copy_fields_to_add.each do |f|
-      field = copy_fields.select { |x| x["source"].eql?(f[:source]) }.first
-      refute_nil field
-      assert_equal field["source"], f[:source]
-      assert_includes f[:dest], field["dest"]
-    end
+  def test_promote_alias_preserves_old_collection
+    connector = @@connector
+    connector.delete_alias('test_alias')
+    connector.delete_collection('test2')
+    connector.delete_collection('test3')
+    connector.create_collection('test2')
+    connector.create_collection('test3')
+    connector.create_or_update_alias('test_alias', 'test2')
 
-    dynamic_fields = connector.all_dynamic_fields
+    old_collection = connector.promote_alias('test3', alias_name: 'test_alias')
 
-    connector.schema_generator.dynamic_fields_to_add.each do |f|
-      field = dynamic_fields.select { |x| x["name"].eql?(f[:name]) }.first
-      refute_nil field
-      assert_equal field["name"], f[:name]
-      assert_equal field["type"], f[:type]
-      assert_equal field["multiValued"], f[:multiValued]
-      assert_equal field["stored"], f[:stored]
-    end
+    assert_equal 'test2', old_collection
+    assert_equal ['test3'], connector.resolve_alias('test_alias')
+    assert connector.collection_exists?('test2')
+  ensure
+    connector.delete_alias('test_alias')
+    connector.delete_collection('test2')
+    connector.delete_collection('test3')
+  end
 
-    connector.clear_all_schema
-    connector.fetch_schema
-    all_fields = connector.all_fields
-    connector.schema_generator.fields_to_add.each do |f|
-      field = all_fields.select { |x| x["name"].eql?(f[:name]) }.first
-      assert_nil field
-    end
+  def test_swap_alias_and_delete_old_removes_previous_collection
+    connector = @@connector
+    connector.delete_alias('test_alias')
+    connector.delete_collection('test2')
+    connector.delete_collection('test3')
+    connector.create_collection('test2')
+    connector.create_collection('test3')
+    connector.create_or_update_alias('test_alias', 'test2')
 
-    copy_fields = connector.all_copy_fields
-    connector.schema_generator.copy_fields_to_add.each do |f|
-      field = copy_fields.select { |x| x["source"].eql?(f[:source]) }.first
-      assert_nil field
-    end
+    connector.swap_alias_and_delete_old('test3', alias_name: 'test_alias')
 
-    dynamic_fields = connector.all_dynamic_fields
-    connector.schema_generator.dynamic_fields_to_add.each do |f|
-      field = dynamic_fields.select { |x| x["name"].eql?(f[:name]) }.first
-      assert_nil field
+    assert_equal ['test3'], connector.resolve_alias('test_alias')
+    refute connector.collection_exists?('test2')
+  ensure
+    connector.delete_alias('test_alias')
+    connector.delete_collection('test2')
+    connector.delete_collection('test3')
+  end
+
+  def test_schema_generator
+    collection_name = "test_schema_generator_#{Time.now.to_i}_#{rand(10_000)}"
+    connector = SOLR::SolrConnector.new(Goo.search_conf, collection_name)
+    connector.init
+    wait_for_generated_schema(connector)
+
+    begin
+      all_fields = connector.all_fields
+
+      connector.schema_generator.fields_to_add.each do |f|
+        field = all_fields.select { |x| x["name"].eql?(f[:name]) }.first
+        refute_nil field
+        assert_equal field["type"], f[:type]
+        assert_equal field["indexed"], f[:indexed]
+        assert_equal field["stored"], f[:stored]
+        assert_equal field["multiValued"], f[:multiValued]
+      end
+
+      copy_fields = connector.all_copy_fields
+      connector.schema_generator.copy_fields_to_add.each do |f|
+        field = copy_fields.select { |x| x["source"].eql?(f[:source]) }.first
+        refute_nil field
+        assert_equal field["source"], f[:source]
+        assert_includes f[:dest], field["dest"]
+      end
+
+      dynamic_fields = connector.all_dynamic_fields
+
+      connector.schema_generator.dynamic_fields_to_add.each do |f|
+        field = dynamic_fields.select { |x| x["name"].eql?(f[:name]) }.first
+        refute_nil field
+        assert_equal field["name"], f[:name]
+        assert_equal field["type"], f[:type]
+        assert_equal field["multiValued"], f[:multiValued]
+        assert_equal field["stored"], f[:stored]
+      end
+
+      connector.clear_all_schema
+      connector.fetch_schema
+      wait_for_generated_schema_removal(connector)
+      all_fields = connector.all_fields
+      connector.schema_generator.fields_to_add.each do |f|
+        field = all_fields.select { |x| x["name"].eql?(f[:name]) }.first
+        assert_nil field
+      end
+
+      copy_fields = connector.all_copy_fields
+      connector.schema_generator.copy_fields_to_add.each do |f|
+        field = copy_fields.select { |x| x["source"].eql?(f[:source]) }.first
+        assert_nil field
+      end
+
+      dynamic_fields = connector.all_dynamic_fields
+      connector.schema_generator.dynamic_fields_to_add.each do |f|
+        field = dynamic_fields.select { |x| x["name"].eql?(f[:name]) }.first
+        assert_nil field
+      end
+    ensure
+      connector.delete_collection(collection_name)
     end
   end
 
   def test_add_field
     connector = @@connector
     add_field('test', connector)
+    wait_for_field(connector, 'test')
 
 
     field = connector.fetch_all_fields.select { |f| f['name'] == 'test' }.first
@@ -129,15 +193,59 @@ class TestSolr < MiniTest::Unit::TestCase
     connector = @@connector
 
     add_field('test', connector)
+    wait_for_field(connector, 'test')
 
     connector.delete_field('test')
+    wait_for_field_removal(connector, 'test')
 
-    field = connector.all_fields.select { |f| f['name'] == 'test' }.first
+    field = connector.fetch_all_fields.select { |f| f['name'] == 'test' }.first
 
     assert_nil field
   end
 
   private
+
+  def wait_for_generated_schema(connector, timeout: 5)
+    wait_until(timeout: timeout) do
+      field_names = connector.fetch_all_fields.map { |f| f['name'] }
+      copy_sources = connector.fetch_all_copy_fields.map { |f| f['source'] }
+      dynamic_names = connector.fetch_all_dynamic_fields.map { |f| f['name'] }
+
+      connector.schema_generator.fields_to_add.all? { |f| field_names.include?(f[:name].to_s) } &&
+        connector.schema_generator.copy_fields_to_add.all? { |f| copy_sources.include?(f[:source].to_s) } &&
+        connector.schema_generator.dynamic_fields_to_add.all? { |f| dynamic_names.include?(f[:name].to_s) }
+    end
+  end
+
+  def wait_for_generated_schema_removal(connector, timeout: 5)
+    wait_until(timeout: timeout) do
+      field_names = connector.fetch_all_fields.map { |f| f['name'] }
+      copy_sources = connector.fetch_all_copy_fields.map { |f| f['source'] }
+      dynamic_names = connector.fetch_all_dynamic_fields.map { |f| f['name'] }
+
+      connector.schema_generator.fields_to_add.none? { |f| field_names.include?(f[:name].to_s) } &&
+        connector.schema_generator.copy_fields_to_add.none? { |f| copy_sources.include?(f[:source].to_s) } &&
+        connector.schema_generator.dynamic_fields_to_add.none? { |f| dynamic_names.include?(f[:name].to_s) }
+    end
+  end
+
+  def wait_for_field(connector, name, timeout: 5)
+    wait_until(timeout: timeout) { connector.fetch_field(name) }
+  end
+
+  def wait_for_field_removal(connector, name, timeout: 5)
+    wait_until(timeout: timeout) { connector.fetch_field(name).nil? }
+  end
+
+  def wait_until(timeout: 5)
+    deadline = Time.now + timeout
+    result = yield
+    until result || Time.now >= deadline
+      sleep 0.2
+      result = yield
+    end
+    result
+  end
 
   def add_field(name, connector)
     if connector.fetch_field(name)
