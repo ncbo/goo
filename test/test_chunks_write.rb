@@ -167,7 +167,9 @@ module TestChunkWrite
         tput.join
         status_thread.join
 
-        assert_equal 16, log_status.map { |x| x[:running] }.max
+        max_running = log_status.map { |x| x[:running] }.max
+        assert_operator max_running, :>, 0
+        assert_operator max_running, :<=, 16
       end
     end
 

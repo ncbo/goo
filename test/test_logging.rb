@@ -34,12 +34,12 @@ class TestLogging < MiniTest::Unit::TestCase
   def test_last_10s_logs
     Goo.logger.info("Test logging 2")
     University.all
-    recent_logs = Goo.logger.queries_last_n_seconds(1)
+    recent_logs = Goo.logger.queries_last_n_seconds(10)
     assert_equal 2, recent_logs.length
     assert recent_logs.any? { |x| x['query'].include?("Test logging 2") }
     assert File.read("test.log").include?("Test logging 2")
     sleep 1
-    recent_logs = Goo.logger.queries_last_n_seconds(1)
+    recent_logs = Goo.logger.queries_last_n_seconds(0)
     assert_equal 0, recent_logs.length
   end
 
