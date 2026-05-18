@@ -58,7 +58,8 @@ module SOLR
         end
       else
         with_collection(bootstrap_collection) do
-          init_without_alias(force)
+          create_collection(@collection_name, @num_shards, @replication_factor)
+          init_schema
           create_or_update_alias(@alias_name, bootstrap_collection)
         end
       end
