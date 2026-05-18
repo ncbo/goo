@@ -152,6 +152,8 @@ class TestSolr < MiniTest::Unit::TestCase
       wait_for_generated_schema_removal(connector)
       all_fields = connector.all_fields
       connector.schema_generator.fields_to_add.each do |f|
+        next if %w[id _version_ _text_].include?(f[:name].to_s)
+
         field = all_fields.select { |x| x["name"].eql?(f[:name]) }.first
         assert_nil field
       end

@@ -14,7 +14,7 @@ module TestSearch
     attribute :semanticType
     attribute :cui
 
-    enable_indexing(:term_search) do | schema_generator |
+    enable_indexing(:term_search, target_collection: :goo_term_search) do | schema_generator |
       schema_generator.add_field(:prefLabel, 'text_general', indexed: true, stored: true, multi_valued: false)
       schema_generator.add_field(:synonym, 'text_general', indexed: true, stored: true, multi_valued: true)
       schema_generator.add_field(:definition, 'string', indexed: true, stored: true, multi_valued: true)
@@ -155,7 +155,9 @@ module TestSearch
     end
 
     def test_search_collection_target_defaults_to_logical_name
-      assert_equal :term_search, Goo.search_collection_target(:term_search)
+      Goo.add_search_connection(:default_target_search_test, :main)
+
+      assert_equal :default_target_search_test, Goo.search_collection_target(:default_target_search_test)
     end
 
     def test_search_collection_target_can_be_overridden

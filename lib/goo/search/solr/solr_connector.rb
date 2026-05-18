@@ -111,13 +111,16 @@ module SOLR
       original_collection = @collection_name
       original_schema = @schema
       original_aliased = @aliased
+      original_solr = @solr
       @collection_name = collection_name
+      @solr = RSolr.connect(url: collection_url)
       @schema = nil
       yield
     ensure
       @collection_name = original_collection
       @schema = original_schema
       @aliased = original_aliased
+      @solr = original_solr
     end
 
   end
