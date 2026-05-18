@@ -97,11 +97,11 @@ module SOLR
       dynamic_fields = all_dynamic_fields.map { |f| { name: f['name'] } }
       copy_fields = all_copy_fields.map { |f| { source: f['source'], dest: f['dest'] } }
       fields_types = all_fields_types.select { |f| init_ft.include?(f['name']) }.map { |f| { name: f['name']} }
-      fields = all_fields.reject { |f| %w[id _version_ ].include?(f['name']) }.map { |f| { name: f['name'] } }
+      fields = all_fields.reject { |f| %w[id _version_ _text_].include?(f['name']) }.map { |f| { name: f['name'] } }
       
       upload_schema('delete-copy-field' => copy_fields) unless copy_fields.empty?
       upload_schema('delete-dynamic-field' => dynamic_fields) unless dynamic_fields.empty?
-      upload_schema('delete-field' => fields) unless copy_fields.empty?
+      upload_schema('delete-field' => fields) unless fields.empty?
       upload_schema('delete-field-type' => fields_types) unless fields_types.empty?
     end
 
@@ -181,4 +181,3 @@ module SOLR
 
   end
 end
-
