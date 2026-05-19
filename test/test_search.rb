@@ -93,8 +93,28 @@ module TestSearch
   class TestModelSearch < MiniTest::Unit::TestCase
 
     def self.before_suite
+      cleanup_test_collections
       Goo.init_search_connections(true)
     end
+
+    def self.after_suite
+      cleanup_test_collections
+    end
+
+    def self.cleanup_test_collections
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, :goo_term_search)
+      admin_connector.delete_alias(:logical_alias_search_active)
+      admin_connector.delete_alias(:bootstrap_alias_search_active)
+      %i[
+        goo_term_search
+        logical_alias_search_active
+        logical_alias_search_v1
+        logical_alias_search_v2
+        bootstrap_alias_search_active
+        bootstrap_alias_search_v1
+      ].each { |collection| admin_connector.delete_collection(collection) }
+    end
+
     def setup
       @terms = [
         TermSearch.new(
@@ -234,6 +254,7 @@ module TestSearch
       ensure
         Goo.reset_search_connection(logical_collection)
         admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(alias_name)
         admin_connector.delete_collection(initial_collection)
         admin_connector.delete_collection(promoted_collection)
       end
@@ -266,6 +287,7 @@ module TestSearch
       ensure
         Goo.reset_search_connection(logical_collection)
         admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(alias_name)
         admin_connector.delete_collection(bootstrap_collection)
       end
     end
