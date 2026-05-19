@@ -14,8 +14,8 @@ module SOLR
       @solr_url = solr_url
       @collection_name = collection_name
       @alias_name = collection_name
-      @num_shards = num_shards
-      @replication_factor = replication_factor
+      @num_shards = normalize_topology_value(num_shards, 'num_shards')
+      @replication_factor = normalize_topology_value(replication_factor, 'replication_factor')
       @solr = RSolr.connect(url: collection_url)
 
       # Perform a status test and wait up to 30 seconds before raising an error
@@ -103,6 +103,16 @@ module SOLR
     end
 
     private
+
+    def normalize_topology_value(value, name)
+      value = 1 if value.nil? || (value.respond_to?(:empty?) && value.empty?)
+      integer_value = Integer(value)
+      raise ArgumentError, "#{name} must be greater than zero" unless integer_value.positive?
+
+      integer_value
+    rescue ArgumentError, TypeError
+      raise ArgumentError, "#{name} must be a positive integer"
+    end
 
     def uses_alias?(bootstrap_collection)
       bootstrap_collection.to_s != @alias_name.to_s

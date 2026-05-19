@@ -28,6 +28,8 @@ require_relative "goo/mixins/sparql_client"
 
 module Goo
 
+  DEFAULT_SOLR_NUM_SHARDS = 1
+  DEFAULT_SOLR_REPLICATION_FACTOR = 1
 
   @@resource_options = Set.new([:persistent]).freeze
 
@@ -312,8 +314,8 @@ module Goo
       search_backend: search_backend,
       target_collection: target_collection.to_sym,
       bootstrap_collection: (bootstrap_collection || target_collection).to_sym,
-      num_shards: num_shards,
-      replication_factor: replication_factor,
+      num_shards: normalize_solr_topology_value(num_shards, DEFAULT_SOLR_NUM_SHARDS, 'num_shards'),
+      replication_factor: normalize_solr_topology_value(replication_factor, DEFAULT_SOLR_REPLICATION_FACTOR, 'replication_factor'),
       block: block_given? ? block : nil
     }
   end
@@ -330,6 +332,16 @@ module Goo
     raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
 
     @@search_collections[collection_name] = existing_config.merge(bootstrap_collection: bootstrap_collection.to_sym)
+  end
+
+  def self.set_search_collection_topology(collection_name, num_shards: nil, replication_factor: nil)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    @@search_collections[collection_name] = existing_config.merge(
+      num_shards: normalize_solr_topology_value(num_shards, DEFAULT_SOLR_NUM_SHARDS, 'num_shards'),
+      replication_factor: normalize_solr_topology_value(replication_factor, DEFAULT_SOLR_REPLICATION_FACTOR, 'replication_factor')
+    )
   end
 
   def self.reset_search_connection(collection_name)
@@ -379,6 +391,8 @@ module Goo
 
     target_collection ||= search_collection_target(collection_name)
     bootstrap_collection ||= search_collection_bootstrap_target(collection_name)
+    num_shards = normalize_solr_topology_value(num_shards, DEFAULT_SOLR_NUM_SHARDS, 'num_shards')
+    replication_factor = normalize_solr_topology_value(replication_factor, DEFAULT_SOLR_REPLICATION_FACTOR, 'replication_factor')
     @@search_connection[collection_name] = build_search_connection(search_backend,
                                                                    target_collection,
                                                                    block,
@@ -412,6 +426,8 @@ module Goo
   private
 
   def self.build_search_connection(search_backend, target_collection, block = nil, num_shards: 1, replication_factor: 1)
+    num_shards = normalize_solr_topology_value(num_shards, DEFAULT_SOLR_NUM_SHARDS, 'num_shards')
+    replication_factor = normalize_solr_topology_value(replication_factor, DEFAULT_SOLR_REPLICATION_FACTOR, 'replication_factor')
     connector = SOLR::SolrConnector.new(search_conf(search_backend),
                                         target_collection,
                                         num_shards: num_shards,
@@ -421,6 +437,16 @@ module Goo
       connector.enable_custom_schema
     end
     connector
+  end
+
+  def self.normalize_solr_topology_value(value, default, name)
+    value = default if value.nil? || (value.respond_to?(:empty?) && value.empty?)
+    integer_value = Integer(value)
+    raise ArgumentError, "#{name} must be greater than zero" unless integer_value.positive?
+
+    integer_value
+  rescue ArgumentError, TypeError
+    raise ArgumentError, "#{name} must be a positive integer"
   end
 
   def self.sparql_query_client(name=:main)

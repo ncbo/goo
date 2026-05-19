@@ -203,6 +203,36 @@ module TestSearch
       assert_equal 3, search_config[:replication_factor]
     end
 
+    def test_search_connection_defaults_blank_collection_topology_settings
+      Goo.add_search_connection(:default_topology_search_test,
+                                :main,
+                                target_collection: :default_topology_search_target,
+                                num_shards: nil,
+                                replication_factor: '')
+
+      search_config = Goo.search_collection(:default_topology_search_test)
+
+      assert_equal 1, search_config[:num_shards]
+      assert_equal 1, search_config[:replication_factor]
+    end
+
+    def test_search_connection_topology_can_be_reconfigured
+      Goo.add_search_connection(:reconfigured_topology_search_test,
+                                :main,
+                                target_collection: :reconfigured_topology_search_target,
+                                num_shards: nil,
+                                replication_factor: nil)
+
+      Goo.set_search_collection_topology(:reconfigured_topology_search_test,
+                                         num_shards: 2,
+                                         replication_factor: 3)
+
+      search_config = Goo.search_collection(:reconfigured_topology_search_test)
+
+      assert_equal 2, search_config[:num_shards]
+      assert_equal 3, search_config[:replication_factor]
+    end
+
     def test_search_connection_bootstrap_can_be_overridden
       Goo.add_search_connection(:bootstrap_config_test,
                                 :main,
