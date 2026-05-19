@@ -10,6 +10,7 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test2')
     @@connector.delete_collection('test3')
     @@connector.delete_collection('test_reindex')
+    @@connector.delete_collection('test_existing_bootstrap')
     @@connector.delete_collection('test_schema_generator')
     @@connector.init
   end
@@ -20,6 +21,7 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test2')
     @@connector.delete_collection('test3')
     @@connector.delete_collection('test_reindex')
+    @@connector.delete_collection('test_existing_bootstrap')
     @@connector.delete_collection('test_schema_generator')
   end
 
@@ -69,6 +71,35 @@ class TestSolr < MiniTest::Unit::TestCase
     assert_equal 'test', connector.collection_name
   ensure
     connector.delete_collection('test_reindex')
+  end
+
+  def test_missing_alias_uses_existing_bootstrap_without_reinitializing_schema
+    connector = @@connector
+    alias_name = 'test_alias'
+    bootstrap_collection = 'test_existing_bootstrap'
+    connector.delete_alias(alias_name)
+    connector.delete_collection(bootstrap_collection)
+    connector.create_collection(bootstrap_collection)
+
+    before_dynamic_fields = nil
+    connector.send(:with_collection, bootstrap_collection) do
+      before_dynamic_fields = connector.fetch_all_dynamic_fields.map { |f| f['name'] }
+    end
+
+    alias_connector = SOLR::SolrConnector.new(Goo.search_conf, alias_name)
+    alias_connector.init(false, bootstrap_collection: bootstrap_collection)
+
+    assert_equal [bootstrap_collection], connector.resolve_alias(alias_name)
+
+    after_dynamic_fields = nil
+    connector.send(:with_collection, bootstrap_collection) do
+      after_dynamic_fields = connector.fetch_all_dynamic_fields.map { |f| f['name'] }
+    end
+
+    assert_equal before_dynamic_fields, after_dynamic_fields
+  ensure
+    connector.delete_alias(alias_name) if connector
+    connector.delete_collection(bootstrap_collection) if connector
   end
 
   def test_promote_alias_preserves_old_collection

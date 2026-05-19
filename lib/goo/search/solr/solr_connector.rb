@@ -58,8 +58,9 @@ module SOLR
         end
       else
         with_collection(bootstrap_collection) do
+          bootstrap_exists = collection_exists?(@collection_name)
           create_collection(@collection_name, @num_shards, @replication_factor)
-          init_schema
+          init_schema if force || !bootstrap_exists
           create_or_update_alias(@alias_name, bootstrap_collection)
         end
       end

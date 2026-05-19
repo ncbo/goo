@@ -106,7 +106,9 @@ module SOLR
 
       begin
         response = http.request(request)
-        raise StandardError, "Failed to #{action}. HTTP #{response.code}: #{response.message}" unless response.code.to_i == 200
+        unless response.code.to_i == 200
+          raise StandardError, "Failed to #{action}. HTTP #{response.code}: #{response.message} #{response.body}"
+        end
       rescue StandardError => e
         raise StandardError, "Failed to #{action}. #{e.message}"
       end
