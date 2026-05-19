@@ -14,7 +14,7 @@ module TestSearch
     attribute :semanticType
     attribute :cui
 
-    enable_indexing(:term_search) do | schema_generator |
+    enable_indexing(:term_search, target_collection: :goo_term_search) do | schema_generator |
       schema_generator.add_field(:prefLabel, 'text_general', indexed: true, stored: true, multi_valued: false)
       schema_generator.add_field(:synonym, 'text_general', indexed: true, stored: true, multi_valued: true)
       schema_generator.add_field(:definition, 'string', indexed: true, stored: true, multi_valued: true)
@@ -93,8 +93,28 @@ module TestSearch
   class TestModelSearch < MiniTest::Unit::TestCase
 
     def self.before_suite
+      cleanup_test_collections
       Goo.init_search_connections(true)
     end
+
+    def self.after_suite
+      cleanup_test_collections
+    end
+
+    def self.cleanup_test_collections
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, :goo_term_search)
+      admin_connector.delete_alias(:logical_alias_search_active)
+      admin_connector.delete_alias(:bootstrap_alias_search_active)
+      %i[
+        goo_term_search
+        logical_alias_search_active
+        logical_alias_search_v1
+        logical_alias_search_v2
+        bootstrap_alias_search_active
+        bootstrap_alias_search_v1
+      ].each { |collection| admin_connector.delete_collection(collection) }
+    end
+
     def setup
       @terms = [
         TermSearch.new(
@@ -152,6 +172,165 @@ module TestSearch
 
     def initialize(*args)
       super(*args)
+    end
+
+    def test_search_collection_target_defaults_to_logical_name
+      Goo.add_search_connection(:default_target_search_test, :main)
+
+      assert_equal :default_target_search_test, Goo.search_collection_target(:default_target_search_test)
+    end
+
+    def test_search_collection_target_can_be_overridden
+      Goo.add_search_connection(:logical_search_test, :main, target_collection: :physical_search_test)
+
+      assert_equal :physical_search_test, Goo.search_collection_target(:logical_search_test)
+
+      Goo.set_search_collection_target(:logical_search_test, :physical_search_test_v2)
+
+      assert_equal :physical_search_test_v2, Goo.search_collection_target(:logical_search_test)
+    end
+
+    def test_search_connection_can_store_collection_topology_settings
+      Goo.add_search_connection(:topology_search_test,
+                                :main,
+                                target_collection: :topology_search_target,
+                                num_shards: 2,
+                                replication_factor: 3)
+
+      search_config = Goo.search_collection(:topology_search_test)
+
+      assert_equal 2, search_config[:num_shards]
+      assert_equal 3, search_config[:replication_factor]
+    end
+
+    def test_search_connection_defaults_blank_collection_topology_settings
+      Goo.add_search_connection(:default_topology_search_test,
+                                :main,
+                                target_collection: :default_topology_search_target,
+                                num_shards: nil,
+                                replication_factor: '')
+
+      search_config = Goo.search_collection(:default_topology_search_test)
+
+      assert_equal 1, search_config[:num_shards]
+      assert_equal 1, search_config[:replication_factor]
+    end
+
+    def test_search_connection_topology_can_be_reconfigured
+      Goo.add_search_connection(:reconfigured_topology_search_test,
+                                :main,
+                                target_collection: :reconfigured_topology_search_target,
+                                num_shards: nil,
+                                replication_factor: nil)
+
+      Goo.set_search_collection_topology(:reconfigured_topology_search_test,
+                                         num_shards: 2,
+                                         replication_factor: 3)
+
+      search_config = Goo.search_collection(:reconfigured_topology_search_test)
+
+      assert_equal 2, search_config[:num_shards]
+      assert_equal 3, search_config[:replication_factor]
+    end
+
+    def test_search_connection_bootstrap_can_be_overridden
+      Goo.add_search_connection(:bootstrap_config_test,
+                                :main,
+                                target_collection: :bootstrap_config_alias,
+                                bootstrap_collection: :bootstrap_config_v1)
+
+      Goo.set_search_collection_bootstrap(:bootstrap_config_test, :bootstrap_config_v2)
+
+      assert_equal :bootstrap_config_v2, Goo.search_collection(:bootstrap_config_test)[:bootstrap_collection]
+    end
+
+    def test_search_connection_initialization_uses_collection_topology_settings
+      Goo.add_search_connection(:topology_runtime_test,
+                                :main,
+                                target_collection: :topology_runtime_target,
+                                num_shards: 4,
+                                replication_factor: 2)
+
+      Goo.init_search_connection(:topology_runtime_test,
+                                 :main,
+                                 nil,
+                                 force: true,
+                                 target_collection: :topology_runtime_target,
+                                 initialize_collection: false,
+                                 num_shards: 4,
+                                 replication_factor: 2)
+
+      connector = Goo.search_client(:topology_runtime_test)
+
+      assert_equal 4, connector.num_shards
+      assert_equal 2, connector.replication_factor
+    ensure
+      Goo.reset_search_connection(:topology_runtime_test)
+    end
+
+    def test_promote_search_alias_retargets_logical_connection
+      logical_collection = :logical_alias_search
+      alias_name = :logical_alias_search_active
+      initial_collection = :logical_alias_search_v1
+      promoted_collection = :logical_alias_search_v2
+
+      Goo.add_search_connection(logical_collection, :main, target_collection: alias_name)
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, alias_name)
+
+      begin
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(initial_collection)
+        admin_connector.delete_collection(promoted_collection)
+        admin_connector.create_collection(initial_collection)
+        admin_connector.create_collection(promoted_collection)
+
+        Goo.init_search_connection(logical_collection, :main, nil, force: true, target_collection: initial_collection)
+        assert_equal initial_collection, Goo.search_client(logical_collection).collection_name.to_sym
+
+        Goo.promote_search_alias(logical_collection, promoted_collection, alias_name: alias_name)
+
+        assert_equal [promoted_collection.to_s], admin_connector.resolve_alias(alias_name)
+        assert_equal alias_name, Goo.search_collection_target(logical_collection)
+        assert_equal alias_name, Goo.search_client(logical_collection).collection_name.to_sym
+      ensure
+        Goo.reset_search_connection(logical_collection)
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(alias_name)
+        admin_connector.delete_collection(initial_collection)
+        admin_connector.delete_collection(promoted_collection)
+      end
+    end
+
+    def test_alias_backed_search_connection_bootstraps_missing_alias
+      logical_collection = :bootstrap_alias_search
+      alias_name = :bootstrap_alias_search_active
+      bootstrap_collection = :bootstrap_alias_search_v1
+      admin_connector = SOLR::SolrConnector.new(Goo.search_conf, alias_name)
+
+      begin
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(bootstrap_collection)
+
+        Goo.add_search_connection(logical_collection,
+                                  :main,
+                                  target_collection: alias_name,
+                                  bootstrap_collection: bootstrap_collection)
+
+        Goo.init_search_connection(logical_collection,
+                                   :main,
+                                   nil,
+                                   force: true,
+                                   target_collection: alias_name,
+                                   bootstrap_collection: bootstrap_collection)
+
+        assert_equal [bootstrap_collection.to_s], admin_connector.resolve_alias(alias_name)
+        assert_equal alias_name, Goo.search_client(logical_collection).collection_name.to_sym
+      ensure
+        Goo.reset_search_connection(logical_collection)
+        admin_connector.delete_alias(alias_name)
+        admin_connector.delete_collection(alias_name)
+        admin_connector.delete_collection(bootstrap_collection)
+      end
     end
 
     def test_search
