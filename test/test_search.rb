@@ -203,6 +203,17 @@ module TestSearch
       assert_equal 3, search_config[:replication_factor]
     end
 
+    def test_search_connection_bootstrap_can_be_overridden
+      Goo.add_search_connection(:bootstrap_config_test,
+                                :main,
+                                target_collection: :bootstrap_config_alias,
+                                bootstrap_collection: :bootstrap_config_v1)
+
+      Goo.set_search_collection_bootstrap(:bootstrap_config_test, :bootstrap_config_v2)
+
+      assert_equal :bootstrap_config_v2, Goo.search_collection(:bootstrap_config_test)[:bootstrap_collection]
+    end
+
     def test_search_connection_initialization_uses_collection_topology_settings
       Goo.add_search_connection(:topology_runtime_test,
                                 :main,

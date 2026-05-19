@@ -325,6 +325,13 @@ module Goo
     @@search_collections[collection_name] = existing_config.merge(target_collection: target_collection.to_sym)
   end
 
+  def self.set_search_collection_bootstrap(collection_name, bootstrap_collection)
+    existing_config = search_collection(collection_name)
+    raise ArgumentError, "Unknown search collection: #{collection_name}" if existing_config.nil?
+
+    @@search_collections[collection_name] = existing_config.merge(bootstrap_collection: bootstrap_collection.to_sym)
+  end
+
   def self.reset_search_connection(collection_name)
     @@search_connection.delete(collection_name)
   end
