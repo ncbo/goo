@@ -124,7 +124,7 @@ module Goo
         if turtle_format
           response = append_turtle_chunked(graph, bnodes_filter, mime_type_in, chunk_lines)
         else
-          file = File.foreach(bnodes_filter)
+          file = File.foreach(bnodes_filter, encoding: Encoding::UTF_8)
           lines = []
           line_count = 0
           file.each_entry do |line|
@@ -161,7 +161,7 @@ module Goo
         lines = []
         line_count = 0
 
-        File.foreach(file_path) do |line|
+        File.foreach(file_path, encoding: Encoding::UTF_8) do |line|
           # Collect all prefix and base declarations
           stripped = line.strip
           if stripped.start_with?('@prefix', '@base', 'PREFIX', 'BASE')

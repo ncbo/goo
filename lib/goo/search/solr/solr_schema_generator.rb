@@ -306,6 +306,7 @@ module SOLR
         {"name": "*_bs", "type": "booleans", stored: true },
         {"name": "*_dt", "type": "pdate", stored: true },
         {"name": "*_dts", "type": "pdate", stored: true , multiValued: true},
+        {"name": "*_str", "type": "strings", indexed: false, stored: false },
         { "name": "*Exact", "type": "string_ci", "multiValued": true, stored: false },
         { "name": "*Suggest", "type": "text_suggest", "omitNorms": true, stored: false, "multiValued": true },
         { "name": "*SuggestEdge", "type": "text_suggest_edge", stored: false, "multiValued": true },
