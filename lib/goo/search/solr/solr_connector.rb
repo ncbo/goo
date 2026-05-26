@@ -33,34 +33,34 @@ module SOLR
 
     alias physical_collection_name collection_name
 
-    def init(force = false, bootstrap_collection: nil)
+    def init(force = false, bootstrap_collection: nil, clear_data: false)
       bootstrap_collection ||= @collection_name
-      return init_with_alias(bootstrap_collection, force: force) if uses_alias?(bootstrap_collection)
+      return init_with_alias(bootstrap_collection, force: force, clear_data: clear_data) if uses_alias?(bootstrap_collection)
 
-      init_without_alias(force)
+      init_without_alias(force, clear_data: clear_data)
     end
 
-    def init_without_alias(force = false)
+    def init_without_alias(force = false, clear_data: false)
       @aliased = false
       return if collection_exists?(@collection_name) && !force
 
       create_collection(@collection_name, @num_shards, @replication_factor)
 
-      init_schema
+      init_schema(clear_data: clear_data)
     end
 
-    def init_with_alias(bootstrap_collection, force: false)
+    def init_with_alias(bootstrap_collection, force: false, clear_data: false)
       @aliased = true
 
       if alias_exists?(@alias_name)
         with_collection(resolve_alias(@alias_name).first) do
-          init_schema if force
+          init_schema(clear_data: clear_data) if force
         end
       else
         with_collection(bootstrap_collection) do
           bootstrap_exists = collection_exists?(@collection_name)
           create_collection(@collection_name, @num_shards, @replication_factor)
-          init_schema if force || !bootstrap_exists
+          init_schema(clear_data: clear_data) if force || !bootstrap_exists
           create_or_update_alias(@alias_name, bootstrap_collection)
         end
       end
@@ -100,6 +100,10 @@ module SOLR
       old_collection = promote_alias(new_collection_name, alias_name: alias_name)
       delete_collection(old_collection) if old_collection && old_collection != new_collection_name.to_s
       old_collection
+    end
+
+    def reset_schema!
+      init_schema(clear_data: true)
     end
 
     private
