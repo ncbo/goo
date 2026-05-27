@@ -69,8 +69,8 @@ module SOLR
       end
     end
 
-    def init_schema(generator = schema_generator)
-      clear_all_data
+    def init_schema(generator = schema_generator, clear_data: false)
+      clear_all_data if clear_data
       clear_all_schema(generator)
       fetch_schema
       default_fields = all_fields.map { |f| f['name'] }
