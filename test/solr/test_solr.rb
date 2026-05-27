@@ -73,6 +73,21 @@ class TestSolr < MiniTest::Unit::TestCase
     connector.delete_collection('test_reindex')
   end
 
+  def test_force_init_preserves_existing_documents
+    connector = @@connector
+    connector.clear_all_data
+    connector.index_document([{ id: 'force-init-preserves-data',
+                                resource_model: 'test',
+                                resource_id: 'force-init-preserves-data' }])
+
+    connector.init(true)
+
+    response = connector.search('*:*', rows: 0)
+    assert_equal 1, response['response']['numFound']
+  ensure
+    connector.clear_all_data if connector
+  end
+
   def test_missing_alias_uses_existing_bootstrap_without_reinitializing_schema
     connector = @@connector
     alias_name = 'test_alias'
