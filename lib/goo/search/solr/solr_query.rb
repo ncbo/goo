@@ -55,16 +55,20 @@ module SOLR
       @solr.optimize(:optimize_attributes => attrs || {})
     end
 
-    def index_document(document, commit: true)
-      @solr.add(document)
-      @solr.commit if commit
+    def index_document(document, commit: true, commit_within: nil)
+      add_attributes = {}
+
+      if commit && commit_within
+        add_attributes[:commitWithin] = commit_within
+      end
+
+      @solr.add(document, add_attributes: add_attributes)
+      @solr.commit if commit && commit_within.nil?
     end
 
     def index_document_attr(key, type, is_list, fuzzy_search)
       self.class.index_document_attr(key, type, is_list, fuzzy_search)
     end
-
-
 
     def delete_by_id(document_id, commit: true)
       return if document_id.nil?

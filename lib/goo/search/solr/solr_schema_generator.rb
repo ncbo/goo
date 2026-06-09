@@ -75,6 +75,24 @@ module SOLR
             }
         },
         {
+          "name": "string_ci_exact",
+          "class": "solr.TextField",
+          "sortMissingLast": true,
+          "omitNorms": true,
+          "omitTermFreqAndPositions": true,
+          "queryAnalyzer":
+            {
+              "tokenizer": {
+                "class": "solr.KeywordTokenizerFactory"
+              },
+              "filters": [
+                {
+                  "class": "solr.LowerCaseFilterFactory"
+                }
+              ]
+            }
+        },
+        {
           "name": "text_suggest_ngram",
           "class": "solr.TextField",
           "positionIncrementGap": "100",

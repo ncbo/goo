@@ -3,6 +3,15 @@ require 'benchmark'
 
 
 class TestSolr < MiniTest::Unit::TestCase
+  ALIAS_GUARD_FIXTURES = %w[
+    test_shadow_target
+    test_shadow_bootstrap
+    test_init_alias_conflict
+    test_init_alias_bootstrap
+    test_fresh_alias_setup
+    test_fresh_alias_bootstrap
+  ].freeze
+
   def self.before_suite
     @@connector = SOLR::SolrConnector.new(Goo.search_conf, 'test')
     @@connector.delete_alias('test_alias')
@@ -12,6 +21,10 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test_reindex')
     @@connector.delete_collection('test_existing_bootstrap')
     @@connector.delete_collection('test_schema_generator')
+    ALIAS_GUARD_FIXTURES.each do |name|
+      @@connector.delete_alias(name) if @@connector.alias_exists?(name)
+      @@connector.delete_collection(name)
+    end
     @@connector.init
   end
 
@@ -23,6 +36,10 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.delete_collection('test_reindex')
     @@connector.delete_collection('test_existing_bootstrap')
     @@connector.delete_collection('test_schema_generator')
+    ALIAS_GUARD_FIXTURES.each do |name|
+      @@connector.delete_alias(name) if @@connector.alias_exists?(name)
+      @@connector.delete_collection(name)
+    end
   end
 
   def test_add_collection
@@ -300,5 +317,101 @@ class TestSolr < MiniTest::Unit::TestCase
       connector.delete_field(name)
     end
     connector.add_field(name, 'string', indexed: true, stored: true, multi_valued: true)
+  end
+
+  public
+
+  # Regression: SolrConnector#init must never shadow an existing real
+  # collection with an alias of the same name. SolrCloud aliases share a
+  # namespace with collections; if `init` is called with @alias_name equal
+  # to an existing collection and a different `bootstrap_collection`, the
+  # pre-fix code path called CREATEALIAS with @alias_name, silently shadowing
+  # the original collection and rerouting writes to the alias target.
+  def test_init_refuses_to_shadow_existing_collection_via_alias
+    connector = @@connector
+    target = 'test_shadow_target'
+    bootstrap = 'test_shadow_bootstrap'
+
+    begin
+      connector.create_collection(target)
+      assert connector.collection_exists?(target), 'precondition: target collection must exist'
+      refute connector.alias_exists?(target), 'precondition: target name must not be an alias'
+
+      victim = SOLR::SolrConnector.new(Goo.search_conf, target)
+      victim.init(false, bootstrap_collection: bootstrap)
+
+      refute connector.alias_exists?(target),
+             "init() must not create an alias '#{target}' over an existing real collection"
+      assert connector.collection_exists?(target),
+             'init() must leave the existing collection in place'
+      refute victim.aliased?,
+             'init() must mark the connector as un-aliased when target is a real collection'
+      refute connector.collection_exists?(bootstrap),
+             'init() must not create the bootstrap collection when target is a real collection'
+    ensure
+      connector.delete_alias(target) if connector.alias_exists?(target)
+      connector.delete_collection(target) if connector.collection_exists?(target)
+      connector.delete_collection(bootstrap) if connector.collection_exists?(bootstrap)
+    end
+  end
+
+  # Defense-in-depth: if init_with_alias is invoked directly (bypassing the
+  # guard in init), it must refuse to operate when @alias_name names an
+  # existing real collection.
+  def test_init_with_alias_raises_when_alias_name_is_existing_collection
+    connector = @@connector
+    target = 'test_init_alias_conflict'
+    bootstrap = 'test_init_alias_bootstrap'
+
+    begin
+      connector.create_collection(target)
+
+      victim = SOLR::SolrConnector.new(Goo.search_conf, target)
+
+      err = assert_raises(RuntimeError) do
+        victim.send(:init_with_alias, bootstrap, force: false, clear_data: false)
+      end
+      assert_match(/conflicts with an existing/, err.message,
+                   'init_with_alias must raise descriptively when @alias_name is an existing collection')
+
+      refute connector.alias_exists?(target),
+             'init_with_alias must not have created an alias before raising'
+      assert connector.collection_exists?(target),
+             'init_with_alias must have left the original collection intact'
+      refute connector.collection_exists?(bootstrap),
+             'init_with_alias must not have created the bootstrap collection before raising'
+    ensure
+      connector.delete_alias(target) if connector.alias_exists?(target)
+      connector.delete_collection(target) if connector.collection_exists?(target)
+      connector.delete_collection(bootstrap) if connector.collection_exists?(bootstrap)
+    end
+  end
+
+  # Ensure the fix preserves the legitimate "set up a brand new alias" flow:
+  # @alias_name is fresh (no existing collection or alias with that name).
+  def test_init_with_alias_legitimate_setup_still_works
+    connector = @@connector
+    fresh_alias = 'test_fresh_alias_setup'
+    bootstrap = 'test_fresh_alias_bootstrap'
+
+    begin
+      refute connector.alias_exists?(fresh_alias), 'precondition: alias must not yet exist'
+      refute connector.collection_exists?(fresh_alias), 'precondition: no collection with that name'
+      refute connector.collection_exists?(bootstrap), 'precondition: no bootstrap collection yet'
+
+      fresh = SOLR::SolrConnector.new(Goo.search_conf, fresh_alias)
+      fresh.init(false, bootstrap_collection: bootstrap)
+
+      assert connector.alias_exists?(fresh_alias),
+             'fresh alias setup should still create the alias'
+      assert connector.collection_exists?(bootstrap),
+             'fresh alias setup should still create the bootstrap collection'
+      assert_equal [bootstrap], connector.resolve_alias(fresh_alias)
+      assert fresh.aliased?, 'connector should report aliased? when an alias was set up'
+    ensure
+      connector.delete_alias(fresh_alias) if connector.alias_exists?(fresh_alias)
+      connector.delete_collection(fresh_alias) if connector.collection_exists?(fresh_alias)
+      connector.delete_collection(bootstrap) if connector.collection_exists?(bootstrap)
+    end
   end
 end

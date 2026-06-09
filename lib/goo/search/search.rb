@@ -178,9 +178,9 @@ module Goo
         search_client(connection_name).submit_search_query(query, params)
       end
 
-      def indexBatch(collection, connection_name = search_collection_name)
+      def indexBatch(collection, connection_name = search_collection_name, commit: true, commit_within: nil)
         docs = collection.map(&:indexable_object)
-        search_client(connection_name).index_document(docs)
+        search_client(connection_name).index_document(docs, commit: commit, commit_within: commit_within)
       end
 
       def unindexBatch(collection, connection_name = search_collection_name)
