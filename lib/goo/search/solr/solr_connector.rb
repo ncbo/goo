@@ -35,6 +35,17 @@ module SOLR
 
     def init(force = false, bootstrap_collection: nil, clear_data: false)
       bootstrap_collection ||= @collection_name
+
+      # SAFETY: SolrCloud aliases share a namespace with collections. If
+      # @alias_name already names a real collection (not an alias), creating
+      # an alias with that name silently shadows the collection — queries
+      # route to the alias target and writes go to a different physical
+      # core. This guards against init() with force=false destroying data.
+      if collection_exists?(@alias_name) && !alias_exists?(@alias_name)
+        @aliased = false
+        return self
+      end
+
       return init_with_alias(bootstrap_collection, force: force, clear_data: clear_data) if uses_alias?(bootstrap_collection)
 
       init_without_alias(force, clear_data: clear_data)
@@ -57,6 +68,13 @@ module SOLR
           init_schema(clear_data: clear_data) if force
         end
       else
+        # Defense-in-depth: the guard in init() should catch this earlier,
+        # but if anything constructs a connector and calls init_with_alias
+        # directly, refuse to overwrite an existing collection.
+        if collection_exists?(@alias_name)
+          raise "Refusing to create alias '#{@alias_name}': name conflicts with an existing Solr collection. Aliases and collections share a namespace; creating this alias would shadow the collection."
+        end
+
         with_collection(bootstrap_collection) do
           bootstrap_exists = collection_exists?(@collection_name)
           create_collection(@collection_name, @num_shards, @replication_factor)
