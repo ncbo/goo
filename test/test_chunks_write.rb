@@ -5,18 +5,18 @@ module TestChunkWrite
   ONT_ID_EXTRA = "http://example.org/data/nemo/extra"
   ONT_ID_TURTLE = "http://example.org/data/omim_turtle_chunk_test"
 
-  class TestChunkWrite < MiniTest::Unit::TestCase
+  class TestChunkWrite < Goo::TestCase
 
     def initialize(*args)
       super(*args)
     end
 
-    def self.before_suite
-      _delete
+    def before_all
+      self.class._delete
     end
 
-    def self.after_suite
-      _delete
+    def after_all
+      self.class._delete
     end
 
     def setup

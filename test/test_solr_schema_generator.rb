@@ -1,9 +1,8 @@
-require 'minitest/unit'
-MiniTest::Unit.autorun
+require 'minitest/autorun'
 
 require_relative '../lib/goo/search/solr/solr_schema_generator'
 
-class TestSolrSchemaGenerator < MiniTest::Unit::TestCase
+class TestSolrSchemaGenerator < Minitest::Test
   def setup
     @types = SOLR::SolrSchemaGenerator.new.field_types_to_add
   end

@@ -1,4 +1,5 @@
 require 'active_support/core_ext/string'
+require 'active_support/core_ext/object/blank' # blank?/present? — no longer pulled in transitively by core_ext/string in activesupport 8
 require_relative 'yaml_settings'
 require_relative 'hooks'
 require_relative 'attribute'

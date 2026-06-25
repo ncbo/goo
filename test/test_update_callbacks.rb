@@ -16,13 +16,13 @@ class TestUpdateCallBack < Goo::Base::Resource
   end
 end
 
-class TestUpdateCallBacks < MiniTest::Unit::TestCase
+class TestUpdateCallBacks < Goo::TestCase
 
-  def self.before_suite
+  def before_all
     GooTestData.delete_all [TestUpdateCallBack]
   end
 
-  def self.after_suite
+  def after_all
     GooTestData.delete_all [TestUpdateCallBack]
   end
 

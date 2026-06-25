@@ -8,7 +8,8 @@ gem "uuid"
 gem "request_store"
 
 group :test do
-  gem "minitest", '< 5.0'
+  gem "minitest", '~> 6.0'
+  gem "minitest-hooks" # before_all/after_all (per-suite once) hooks
   gem "pry"
   gem 'simplecov'
   gem 'simplecov-cobertura' # for submitting code coverage results to codecov.io

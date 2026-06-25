@@ -70,7 +70,7 @@ class YamlSchemeModelTest < Goo::Base::Resource
 end
 
 
-class TestDSLSetting < MiniTest::Unit::TestCase
+class TestDSLSetting < Goo::TestCase
   def initialize(*args)
     super(*args)
   end
@@ -86,7 +86,7 @@ class TestDSLSetting < MiniTest::Unit::TestCase
   def test_default_value
     #default is on save ... returns`
     person = PersonModel.new
-    assert_equal nil, person.created
+    assert_nil person.created
   end
 
   def test_model_with_yaml_scheme

@@ -88,9 +88,9 @@ class ProcValidatorsTestModel < Goo::Base::Resource
   end
 end
 
-class TestValidators < MiniTest::Unit::TestCase
+class TestValidators < Goo::TestCase
 
-  def self.before_suite
+  def before_all
     begin
       GooTestData.create_test_case_data
     rescue Exception => e
@@ -98,7 +98,7 @@ class TestValidators < MiniTest::Unit::TestCase
     end
   end
 
-  def self.after_suite
+  def after_all
     GooTestData.delete_test_case_data
     GooTestData.delete_all [SymmetricTestModel, InverseOfTestModel]
   end

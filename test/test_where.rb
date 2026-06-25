@@ -1,13 +1,13 @@
 require_relative 'test_case'
 require_relative 'models'
 
-class TestWhere < MiniTest::Unit::TestCase
+class TestWhere < Goo::TestCase
 
   def initialize(*args)
     super(*args)
   end
 
-  def self.before_suite
+  def before_all
     begin
       GooTestData.create_test_case_data
     rescue Exception => e
@@ -15,7 +15,7 @@ class TestWhere < MiniTest::Unit::TestCase
     end
   end
 
-  def self.after_suite
+  def after_all
     GooTestData.delete_test_case_data
   end
 

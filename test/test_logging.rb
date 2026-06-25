@@ -1,16 +1,16 @@
 require_relative 'test_case'
 require_relative 'models'
 
-class TestLogging < MiniTest::Unit::TestCase
+class TestLogging < Goo::TestCase
 
-  def self.before_suite
+  def before_all
     GooTestData.create_test_case_data
     Goo.use_cache = true
     Goo.redis_client.flushdb
     Goo.add_query_logger(enabled: true, file: "test.log")
   end
 
-  def self.after_suite
+  def after_all
     GooTestData.delete_test_case_data
     Goo.add_query_logger(enabled: false, file: nil)
     File.delete("test.log") if File.exist?("test.log")

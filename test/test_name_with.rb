@@ -14,7 +14,7 @@ class NameWithAttribute < Goo::Base::Resource
   attribute :name, enforce: [ :existence, :string, :unique ]
 end
 
-class TestNameWith < MiniTest::Unit::TestCase
+class TestNameWith < Goo::TestCase
   def initialize(*args)
     super(*args)
   end

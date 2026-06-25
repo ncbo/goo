@@ -64,14 +64,14 @@ class Term < Goo::Base::Resource
 
 end
 
-class TestModelComplex < MiniTest::Unit::TestCase
+class TestModelComplex < Goo::TestCase
 
 
   def initialize(*args)
     super(*args)
   end
 
-  def self.before_suite
+  def before_all
     Goo.use_cache = false
     if GooTest.count_pattern("?s ?p ?o") > 100000
       raise Exception, "Too many triples in KB, does not seem right to run tests"
@@ -80,7 +80,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
 
-  def self.after_suite
+  def after_all
     Goo.use_cache = false
     Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
