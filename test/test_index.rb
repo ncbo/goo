@@ -40,12 +40,12 @@ module TestIndex
       db = Test::Models::Database.find(RDF::URI.new(Test::Models::DATA_ID)).first
       res_id = RDF::URI.new "http://www.census.gov/tiger/2002/tlid/124988547"
       l = Test::Models::Line.find(res_id).in(db).first
-      assert l.id == res_id      
+      assert_equal l.id, res_id      
       l = Test::Models::Line.find(res_id).in(db).include(:start,:end).first
-      assert l.start.tiger_lat == "37.614888"
-      assert l.start.tiger_long == "-121.749163"
-      assert l.end.tiger_lat == "37.608914"
-      assert l.end.tiger_long == "-121.745853"
+      assert_equal "37.614888", l.start.tiger_lat
+      assert_equal "-121.749163", l.start.tiger_long
+      assert_equal "37.608914", l.end.tiger_lat
+      assert_equal "-121.745853", l.end.tiger_long
     end
 
     def test_index
@@ -64,7 +64,7 @@ module TestIndex
                 .page(2,10).all
 
       res_not_index.each_index do |x|
-        assert res_not_index[x].start == res_from_index[x].start
+        assert_equal res_not_index[x].start, res_from_index[x].start
       end
     end
 
@@ -72,17 +72,17 @@ module TestIndex
       skip "enable for benchmark"
       db = Test::Models::Database.find(RDF::URI.new(Test::Models::DATA_ID)).first
       page = Test::Models::Line.in(db).page(1,5).all
-      assert page.length == 5
-      assert page.aggregate == 62420
-      assert page.total_pages == (page.aggregate / 5.0).ceil
-      assert page.page_number == 1
+      assert_equal 5, page.length
+      assert_equal 62420, page.aggregate
+      assert_equal page.total_pages, (page.aggregate / 5.0).ceil
+      assert_equal 1, page.page_number
       assert page.next?
-      assert !page.prev?
+      refute page.prev?
 
       page = Test::Models::Line.in(db).page(1,5).include(:start,:end).all
       page.each do |line|
-        assert line.start.is_a?(Struct)
-        assert line.end.is_a?(Struct)
+        assert_kind_of Struct, line.start
+        assert_kind_of Struct, line.end
       end
 
       page_i = 1
@@ -96,7 +96,7 @@ module TestIndex
         total += page.length
         page_i += 1
       end while page.next?
-      assert total == 62420
+      assert_equal 62420, total
 
     end
   end

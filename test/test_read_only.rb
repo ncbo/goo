@@ -20,8 +20,8 @@ module TestReadOnly
       students.each do |st|
         st.klass= Student
         assert st.name
-        assert st.is_a?Struct
-        assert st.id.class == RDF::URI
+        assert_kind_of Struct, st
+        assert_instance_of RDF::URI, st.id
       end
     end
 
@@ -30,10 +30,10 @@ module TestReadOnly
                 .read_only
                 .include(:name,:birth_date)
                 .first
-      assert st.kind_of?(Struct)
-      assert st.id == RDF::URI.new("http://goo.org/default/student/Tim")
-      assert st.name == "Tim"
-      assert st.birth_date.kind_of?(DateTime)
+      assert_kind_of Struct, st
+      assert_equal st.id, RDF::URI.new("http://goo.org/default/student/Tim")
+      assert_equal "Tim", st.name
+      assert_kind_of DateTime, st.birth_date
     end
 
     def test_embed_struct

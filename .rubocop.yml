@@ -1,0 +1,32 @@
+plugins:
+  - rubocop-minitest
+
+# Scoped intentionally narrow: this config exists to enforce the minitest
+# style guide on the test suite, not to roll out full RuboCop across goo.
+# Everything is disabled by default; only the Minitest department is enabled.
+AllCops:
+  TargetRubyVersion: 3.2
+  SuggestExtensions: false
+  DisabledByDefault: true
+  Include:
+    - 'test/**/*.rb'
+
+Minitest:
+  Enabled: true
+
+# Enforce `assert_equal(expected, actual)` order. It's a pending cop (off by
+# default), so enable it explicitly. Only flips when the actual-position arg is
+# a literal (number/string/etc.); constants like `assert_equal(obj.class, Array)`
+# are left alone by design.
+Minitest/LiteralAsActualArgument:
+  Enabled: true
+
+# assert(obj.kind_of?(K)) / assert(obj.is_a?(K)) -> assert_kind_of(K, obj).
+# Pending cop, off by default; enable explicitly.
+Minitest/AssertKindOf:
+  Enabled: true
+
+# Style cops about how many assertions a test has are noisy for goo's
+# integration-style suites and aren't part of the assertion-idiom cleanup.
+Minitest/MultipleAssertions:
+  Enabled: false

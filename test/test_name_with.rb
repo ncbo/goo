@@ -34,10 +34,10 @@ class TestNameWith < Goo::TestCase
 
   def test_name_with
     nw = NameWith.new(name: "John")
-    assert !nw.exist?
+    refute nw.exist?
     assert_instance_of(RDF::URI, nw.id)
     assert_equal("http://example.org/John/bla",nw.id.to_s)
-    assert !nw.exist?
+    refute nw.exist?
     nw.save
 
     from_backend = NameWith.find(RDF::URI.new("http://example.org/John/bla"), include: [:name]).to_a[0]
@@ -51,15 +51,15 @@ class TestNameWith < Goo::TestCase
     end
 
     from_backend.delete
-    assert(!from_backend.exist?)
-    assert 0, GooTest.triples_for_subject(from_backend.id)
+    refute(from_backend.exist?)
+    assert_equal 0, GooTest.triples_for_subject(from_backend.id)
   end
 
   def test_name_with_attribute
     nw = NameWithAttribute.new(name: "John")
     assert_instance_of(RDF::URI, nw.id)
     assert_equal("http://goo.org/default/name_with_attribute/John",nw.id.to_s)
-    assert !nw.exist?
+    refute nw.exist?
     nw.save
 
     from_backend = NameWithAttribute.find(
@@ -75,8 +75,8 @@ class TestNameWith < Goo::TestCase
     end
 
     from_backend.delete
-    assert(!from_backend.exist?)
-    assert 0, GooTest.triples_for_subject(from_backend.id)
+    refute(from_backend.exist?)
+    assert_equal 0, GooTest.triples_for_subject(from_backend.id)
   end
 
 end
