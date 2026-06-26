@@ -6,7 +6,6 @@ plugins:
 # Everything is disabled by default; only the Minitest department is enabled.
 AllCops:
   TargetRubyVersion: 3.2
-  NewCops: disable
   SuggestExtensions: false
   DisabledByDefault: true
   Include:
@@ -15,10 +14,10 @@ AllCops:
 Minitest:
   Enabled: true
 
-# Enforce `assert_equal(expected, actual)` order. It's a "pending" cop, so the
-# NewCops: disable above would otherwise leave it off; enable it explicitly.
-# Note: only flips when the actual-position arg is a literal (number/string/etc.);
-# constants like `assert_equal(obj.class, Array)` are left alone by design.
+# Enforce `assert_equal(expected, actual)` order. It's a pending cop (off by
+# default), so enable it explicitly. Only flips when the actual-position arg is
+# a literal (number/string/etc.); constants like `assert_equal(obj.class, Array)`
+# are left alone by design.
 Minitest/LiteralAsActualArgument:
   Enabled: true
 
