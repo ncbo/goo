@@ -4,7 +4,7 @@ module Goo
       include Validator
 
       RESERVED_NAMES = %w[
-        admin administrator root support system test guest owner user
+        root support system test guest owner user
         webmaster help contact host mail ftp info api noc security
       ].freeze
 
@@ -30,8 +30,7 @@ module Goo
 
         Array(@value).all? do |username|
           next false unless username.is_a?(String)
-
-          username = username.strip
+          next false unless username == username.strip
 
           USERNAME_LENGTH_RANGE.cover?(username.length) &&
             username.match?(ASCII_ONLY_REGEX) &&
