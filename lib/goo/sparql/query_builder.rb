@@ -19,6 +19,7 @@ module Goo
         @internal_variables_map = {}
         @equivalent_predicates = options[:equivalent_predicates]
         @properties_to_include = options[:properties_to_include]
+        @union_with_bind = nil
         @query = get_client
       end
 
@@ -57,6 +58,9 @@ module Goo
 
         ids_filter(ids) if ids
 
+        # Inject the union-with-bind block last, after every #filter call above, so it
+        # renders after the real filters (matching the old fork DSL ordering).
+        apply_union_with_bind
 
         @query.order_by(*order_by_string) if @order_by
 
@@ -95,7 +99,18 @@ module Goo
           binding_as << [[[:inverseAttributeObject, :attributeProperty, :id]], { filters: inverse_filter}] unless inverse_filter.empty?
         end
 
-        @query.optional_union_with_bind_as(*binding_as) unless binding_as.empty?
+        @union_with_bind = Goo::SPARQL::Ext::UnionWithBind.new(binding_as) unless binding_as.empty?
+        self
+      end
+
+      # Stash the union-with-bind QueryElement so Goo::SPARQL::Ext::QuerySerialization renders
+      # it as the LAST thing inside the WHERE group -- after any where-pattern unions. Order
+      # matters: the block is an OPTIONAL (left-join), so placing it after the unions matches
+      # the original fork semantics (and result sets).
+      def apply_union_with_bind
+        return self if @union_with_bind.nil?
+
+        @query.options[:goo_union_with_bind] = @union_with_bind
         self
       end
 
