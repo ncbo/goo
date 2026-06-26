@@ -33,6 +33,14 @@ module Goo
         assert_valid "user@sub.domain.xn--p1ai"
       end
 
+      def test_case_insensitive_domains
+        # Domain names are case-insensitive (RFC 1035 §2.3.3); uppercase
+        # domains and punycode TLDs must validate the same as lowercase.
+        assert_valid "User@Example.COM"
+        assert_valid "user@EXAMPLE.COM"
+        assert_valid "user@example.XN--P1AI"
+      end
+
       def test_invalid_emails_structure
         assert_invalid ""
         assert_invalid "plainaddress"

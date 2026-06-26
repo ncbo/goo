@@ -12,8 +12,8 @@ module Goo
       [a-z0-9!#$%&'*+\/=?^_`{|}~-]+             # local part
       (?:\.[a-z0-9!#$%&'*+\/=?^_`{|}~-]+)*       # dot-separated continuation in local
       @
-      (?:#{DOMAIN_LABEL}\.)+                     # domain labels
-      #{TLD_LABEL}                               # top-level domain or punycode TLD
+      (?:#{DOMAIN_LABEL.source}\.)+              # domain labels
+      #{TLD_LABEL.source}                        # top-level domain or punycode TLD
       \z/ix
 
       MIN_LENGTH = 6       # Smallest valid email: a@b.cd
