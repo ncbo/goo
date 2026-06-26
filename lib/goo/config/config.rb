@@ -26,6 +26,8 @@ module Goo
     @settings.goo_redis_host      ||= ENV['REDIS_HOST'] || 'localhost'
     @settings.goo_redis_port      ||= ENV['REDIS_PORT'] || 6379
     @settings.bioportal_namespace ||= ENV['BIOPORTAL_NAMESPACE'] || 'http://data.bioontology.org/'
+    @settings.query_logging       ||= ENV['OP_QUERIES_LOGGING'] || false
+    @settings.query_logging_file  ||= ENV['OP_QUERIES_LOGGING_FILE'] || nil
     @settings.queries_debug       ||= ENV['QUERIES_DEBUG'] || false
     # SPARQL query caching: goo default OFF; env-driven opt-in so production can flip caching
     # without a code change (de-fork review D5).
@@ -35,6 +37,7 @@ module Goo
     puts "(GOO) >> Using term search server at #{@settings.search_server_url}"
     puts "(GOO) >> Using Redis instance at #{@settings.goo_redis_host}:#{@settings.goo_redis_port}"
     puts "(GOO) >> SPARQL query caching enabled (OP_USE_CACHE)" if @settings.use_cache
+    puts "(GOO) >> Using SPARQL query logging#{@settings.query_logging_file ? " -> #{@settings.query_logging_file}" : ''}" if @settings.query_logging
 
     connect_goo
   end
@@ -51,6 +54,7 @@ module Goo
                                 options: { rules: :NONE})
         conf.add_search_backend(:main, service: @settings.search_server_url)
         conf.add_redis_backend(host: @settings.goo_redis_host, port: @settings.goo_redis_port)
+        conf.enable_query_logging(enabled: @settings.query_logging, file: @settings.query_logging_file)
 
         conf.add_namespace(:omv, RDF::Vocabulary.new("http://omv.org/ontology/"))
         conf.add_namespace(:skos, RDF::Vocabulary.new("http://www.w3.org/2004/02/skos/core#"))

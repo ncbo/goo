@@ -20,6 +20,7 @@ require 'minitest/autorun'
 require 'minitest/hooks/test' # before_all/after_all: per-suite (once) setup/teardown
 
 require_relative "../lib/goo.rb"
+require_relative '../lib/goo/test_helpers' # Goo::TestHelpers: assert_max/assert_sparql_queries
 require_relative '../config/config.test'
 
 # Safety guard for destructive tests: ensure test targets are safe (localhost or -ut suffix)
@@ -89,15 +90,17 @@ TestSafety.ensure_safe_test_targets!
 module Goo
   class TestCase < Minitest::Test
     include Minitest::Hooks
+    include Goo::TestHelpers # assert_max_sparql_queries / assert_sparql_queries (query budgets)
   end
 end
 
-# Minitest has no "before all suites" hook. Run-wide setup goes at load time
-# here (this file is required before autorun's at_exit fires); run-wide teardown
-# / reporting goes in Minitest.after_run. When feature/sparql-query-logging
-# rebases onto this, its run-total reporting lands here, e.g.:
-#   Goo.enable_query_count_total                       # before all suites
-#   Minitest.after_run { warn "[goo] SPARQL ..." }     # after all suites
+# Minitest has no "before all suites" hook: arm the store-bound SPARQL tally at load time (this
+# file is required before autorun's at_exit fires) and print the run totals in Minitest.after_run.
+Goo.enable_query_count_total
+Minitest.after_run do
+  warn "\n[goo] SPARQL during test run: #{Goo.query_count_total} store-bound queries, " \
+       "#{Goo.cache_hit_total} cache hits"
+end
 
 # Test runs must not depend on Solr state left behind by previous (possibly
 # interrupted) runs: rebuild each search collection's schema on its first

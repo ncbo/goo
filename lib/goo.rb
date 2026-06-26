@@ -52,6 +52,10 @@ module Goo
   @@uuid = UUID.new
   @@debug_enabled = false
   @@use_cache = false
+  @@query_logging = false
+  @@query_logging_file = nil
+  @@query_count_total = nil # process-wide store-bound query tally; nil = disabled (test reporting)
+  @@cache_hit_total = nil   # process-wide cache-hit tally; nil = disabled (test reporting)
   @@slice_loading_size = 500
   @@force_rebuild_search_schema = false
 
@@ -211,6 +215,95 @@ module Goo
     port = opts.delete(:port) || 6379
     @@redis_client = Redis.new host: host, port: port, timeout: 300
     set_sparql_cache
+  end
+
+  # The query logger attached to the :main query client (records SPARQL text, timing, result
+  # size, cache hits). Inert unless query logging was enabled.
+  def self.query_logger
+    @@sparql_backends[:main][:query].query_logger
+  end
+
+  # Backward-compatible alias for the fork-era name. AgroPortal's ontologies_api
+  # Admin::LoggingController calls Goo.logger.{get_logs,queries_last_n_seconds,users_query_count}.
+  def self.logger
+    query_logger
+  end
+
+  # --- SPARQL query counting -------------------------------------------------------------
+  # Counts store-bound SPARQL round-trips (cache hits don't count) via a thread-local. Unlike
+  # wall time, the count is deterministic for a given code path + data, so it's the right signal
+  # for catching N+1 / query-fan-out regressions in goo/OLD across machines (laptop vs CI).
+  #
+  # Cheap and inert by default: tick_query_count is a no-op unless a counting context is active,
+  # so there's zero overhead in normal operation.
+
+  # Increment the active query counter, if any. Called at the client seam per store round-trip.
+  def self.tick_query_count
+    count = Thread.current[:goo_query_count]
+    Thread.current[:goo_query_count] = count + 1 unless count.nil?
+    @@query_count_total += 1 unless @@query_count_total.nil?
+  end
+
+  # Counted at the cache-hit branch of Client#query (a hit means caching is on and served the
+  # query without a store round-trip). Complements tick_query_count: store-bound + hits = total
+  # logical reads, and hits/(hits+store-bound-reads) is the cache effectiveness during the run.
+  def self.tick_cache_hit
+    @@cache_hit_total += 1 unless @@cache_hit_total.nil?
+  end
+
+  # Process-wide tallies for test-run reporting. Off in production (each tick is a single
+  # nil-check); a test harness opts in, then prints the totals at the end of the run. Not exact
+  # under concurrent threads, but test suites run queries serially.
+  def self.enable_query_count_total
+    @@query_count_total = 0
+    @@cache_hit_total = 0
+  end
+
+  def self.query_count_total
+    @@query_count_total
+  end
+
+  def self.cache_hit_total
+    @@cache_hit_total
+  end
+
+  # Count the store-bound SPARQL queries issued by the block. Nesting-safe: an inner count also
+  # rolls up into the enclosing counter. Returns the count for the block.
+  def self.count_sparql_queries
+    outer = Thread.current[:goo_query_count]
+    Thread.current[:goo_query_count] = 0
+    yield
+    Thread.current[:goo_query_count]
+  ensure
+    inner = Thread.current[:goo_query_count] || 0
+    Thread.current[:goo_query_count] = outer.nil? ? nil : outer + inner
+  end
+
+  def self.query_logging?
+    @@query_logging
+  end
+
+  # Turn SPARQL query logging on/off and (re)attach loggers to the registered backends.
+  # Default off; opt in via this call or the OP_QUERIES_LOGGING env var (see config.rb).
+  def self.enable_query_logging(enabled: false, file: nil)
+    @@query_logging = enabled
+    @@query_logging_file = file
+    set_query_logging
+  end
+
+  def self.set_query_logging
+    return unless @@sparql_backends.length > 0
+
+    @@sparql_backends.each_value do |epr|
+      logger = if @@query_logging
+                 Goo::SPARQL::QueryLogger.new(redis: @@redis_client, file: @@query_logging_file)
+               else
+                 Goo::SPARQL::QueryLogger.new # inert
+               end
+      epr[:query].query_logger = logger
+      epr[:update].query_logger = logger
+      epr[:data].query_logger = logger
+    end
   end
 
   def self.set_sparql_cache
@@ -500,22 +593,18 @@ module Goo
 
     def call(env)
       Thread.current[:ncbo_debug] = {}
+      Thread.current[:goo_query_count] = 0 # arm the per-request SPARQL query counter
       status, headers, response = @app.call(env)
-      if Thread.current[:ncbo_debug]
-        if Thread.current[:ncbo_debug][:sparql_queries]
-          queries = Thread.current[:ncbo_debug][:sparql_queries]
-          processing = queries.map { |x| x[0] }.inject { |sum,x| sum + x }
-          parsing = queries.map { |x| x[1] }.inject { |sum,x| sum + x }
-          headers["ncbo-time-goo-sparql-queries"] = "%.3f"%processing
-          headers["ncbo-time-goo-response-parsing"] = "%.3f"%parsing
-        end
-        if Thread.current[:ncbo_debug][:goo_process_query]
-          goo_totals = Thread.current[:ncbo_debug][:goo_process_query]
-            .inject { |sum,x| sum + x }
-          headers["ncbo-time-goo-process-query"] = "%.3f"%goo_totals
-        end
+      if Thread.current[:ncbo_debug] && Thread.current[:ncbo_debug][:goo_process_query]
+        goo_totals = Thread.current[:ncbo_debug][:goo_process_query]
+          .inject { |sum,x| sum + x }
+        headers["ncbo-time-goo-process-query"] = "%.3f"%goo_totals
       end
-      return [status, headers, response]
+      # Count of store-bound SPARQL queries this request issued -- deterministic, unlike timing.
+      headers["ncbo-sparql-query-count"] = Thread.current[:goo_query_count].to_s
+      [status, headers, response]
+    ensure
+      Thread.current[:goo_query_count] = nil
     end
   end
 
