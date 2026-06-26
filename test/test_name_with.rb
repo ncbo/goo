@@ -52,7 +52,7 @@ class TestNameWith < Goo::TestCase
 
     from_backend.delete
     refute(from_backend.exist?)
-    assert 0, GooTest.triples_for_subject(from_backend.id)
+    assert_equal 0, GooTest.triples_for_subject(from_backend.id)
   end
 
   def test_name_with_attribute
@@ -76,7 +76,7 @@ class TestNameWith < Goo::TestCase
 
     from_backend.delete
     refute(from_backend.exist?)
-    assert 0, GooTest.triples_for_subject(from_backend.id)
+    assert_equal 0, GooTest.triples_for_subject(from_backend.id)
   end
 
 end

@@ -8,17 +8,13 @@ class TestCache < Goo::TestCase
   end
 
   def before_all
-    begin
-      Goo.use_cache=false
-      GooTestData.create_test_case_data
-      redis = Goo.redis_client
-      if redis.dbsize > 100
-        raise Exception, "This redis needs to point to testing server"
-      end
-      redis.flushdb
-    rescue Exception => e
-      puts e.backtrace
+    Goo.use_cache=false
+    GooTestData.create_test_case_data
+    redis = Goo.redis_client
+    if redis.dbsize > 100
+      raise "This redis needs to point to testing server"
     end
+    redis.flushdb
   end
 
   def after_all

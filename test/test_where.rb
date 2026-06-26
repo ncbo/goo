@@ -8,11 +8,7 @@ class TestWhere < Goo::TestCase
   end
 
   def before_all
-    begin
-      GooTestData.create_test_case_data
-    rescue Exception => e
-      puts e.message
-    end
+    GooTestData.create_test_case_data
   end
 
   def after_all
@@ -502,10 +498,10 @@ class TestWhere < Goo::TestCase
     refute_equal st.first.name, st[1].name
     st.each do |p|
       assert (p.name == "Susan" || p.name == "Daniel")
-      assert Array, p.enrolled
+      assert_instance_of Array, p.enrolled
       assert (p.name == "Susan" && p.enrolled.length == 1) ||
                (p.name == "Daniel" && p.enrolled.length == 2)
-      assert String, p.enrolled.first.university.address.first.country
+      assert_instance_of String, p.enrolled.first.university.address.first.country
     end
   end
 

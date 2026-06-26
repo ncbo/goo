@@ -91,11 +91,7 @@ end
 class TestValidators < Goo::TestCase
 
   def before_all
-    begin
-      GooTestData.create_test_case_data
-    rescue Exception => e
-      puts e.message
-    end
+    GooTestData.create_test_case_data
   end
 
   def after_all
