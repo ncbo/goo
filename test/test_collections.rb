@@ -27,14 +27,14 @@ class TestCollection < Goo::TestCase
       User.new(name: "John").save()
     issue = Issue.find("issue1", collection: john).first || 
       Issue.new(description: "issue1", owner: john).save()
-    assert !Issue.find("issue1", collection: john).nil?
+    refute_nil Issue.find("issue1", collection: john)
     assert_raises ArgumentError do
       Issue.find("issue1").first
     end
-    assert issue.owner.id == john.id
+    assert_equal issue.owner.id, john.id
 
     #same reference
-    assert john.object_id == Issue.find("issue1",collection: john).first.owner.object_id
+    assert_equal john.object_id, Issue.find("issue1",collection: john).first.owner.object_id
     owner = Issue.find("issue1",collection: john).first.owner
 
     assert_equal(1,
@@ -70,7 +70,7 @@ class TestCollection < Goo::TestCase
       GooTest.count_pattern(
         "GRAPH #{john.id.to_ntriples} { #{issue.id.to_ntriples} a ?x }" ))
 
-    assert !Issue.new(description: "issue1", owner: less).exist?
+    refute Issue.new(description: "issue1", owner: less).exist?
     #different owner
     issue = Issue.find("issue1", collection: less).first || 
       Issue.new(description: "issue1", owner: less).save()

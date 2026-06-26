@@ -83,44 +83,44 @@ class TestWhere < Goo::TestCase
     cats.each do |cats|
       assert_instance_of String, cats.code
     end
-    assert University.where().length == 3
-    assert Address.where().length == 3
-    assert Category.where().length == 7
+    assert_equal 3, University.where().length
+    assert_equal 3, Address.where().length
+    assert_equal 7, Category.where().length
   end
 
   def test_where_1levels
     programs = Program.where(name: "BioInformatics", university: [ name: "Stanford"  ]).all
-    assert programs.length == 1
+    assert_equal 1, programs.length
     assert programs.first.id.to_s["Stanford/BioInformatics"]
   end
 
   def test_where_2levels
     programs = Program.where(name: "BioInformatics", university: [ address: [ country: "US" ]]).all
-    assert programs.length == 1
+    assert_equal 1, programs.length
     assert programs.first.id.to_s["Stanford/BioInformatics"]
     programs = Program.where(name: "BioInformatics", university: [ address: [ country: "UK" ]]).all
-    assert programs.length == 1
+    assert_equal 1, programs.length
     assert programs.first.id.to_s["Southampton/BioInformatics"]
 
     #any program from universities in the US
     programs = Program.where(university: [ address: [ country: "US" ]]).include([:name]).all
-    assert programs.length == 3
-    assert programs.map { |p| p.name }.sort == ["BioInformatics", "CompSci", "Medicine"]
+    assert_equal 3, programs.length
+    assert_equal ["BioInformatics", "CompSci", "Medicine"], programs.map { |p| p.name }.sort
   end
 
   def test_where_2levels_inverse
     unis = University.where(address: [country: "US"], programs: [category: [code: "Biology"]]).all
-    assert unis.length == 1
-    assert unis.first.id.to_s == "http://goo.org/default/university/Stanford"
+    assert_equal 1, unis.length
+    assert_equal "http://goo.org/default/university/Stanford", unis.first.id.to_s
     unis = University.where(programs: [category: [code: "Biology"]]).include(:name).all
-    assert unis.length == 3
-    assert unis.map { |u| u.name }.sort == ["Southampton", "Stanford", "UPM"]
+    assert_equal 3, unis.length
+    assert_equal ["Southampton", "Stanford", "UPM"], unis.map { |u| u.name }.sort
 
     #equivalent
     unis = University.where(address: [country: "US"])
                      .and(programs: [category: [code: "Biology"]]).all
-    assert unis.length == 1
-    assert unis.first.id.to_s == "http://goo.org/default/university/Stanford"
+    assert_equal 1, unis.length
+    assert_equal "http://goo.org/default/university/Stanford", unis.first.id.to_s
   end
 
   def test_embed_include
@@ -128,17 +128,17 @@ class TestWhere < Goo::TestCase
                       .include(university: [:name])
                       .include(category: [:code]).all
 
-    assert programs.length == 9
+    assert_equal 9, programs.length
     programs.each do |p|
       assert_instance_of String, p.name
       assert_instance_of University, p.university
       assert_instance_of Array, p.category
-      assert p.category.length == p.category.select { |x| x.instance_of? Category }.length
+      assert_equal p.category.length, p.category.select { |x| x.instance_of? Category }.length
       assert_instance_of String, p.university.name
       assert p.id.to_s[p.university.name]
       PROGRAMS_AND_CATEGORIES.each do |x|
         if p.id.to_s[x[0]]
-          assert x[2].length == p.category.length
+          assert_equal x[2].length, p.category.length
           p.category.each do |c|
             assert_instance_of String, c.code
             assert (x[2].index c.code)
@@ -163,11 +163,11 @@ class TestWhere < Goo::TestCase
   def test_iterative_include_in_place
     unis = University.where.all
     unis_return = University.where.models(unis).include(programs: [:name]).to_a
-    assert unis_return.object_id == unis.object_id
-    assert unis.length == unis_return.length
+    assert_equal unis_return.object_id, unis.object_id
+    assert_equal unis.length, unis_return.length
     return_object_id = unis.map { |x| x.object_id }.uniq.sort
     unis_object_id = unis.map { |x| x.object_id }.uniq.sort
-    assert return_object_id == unis_object_id
+    assert_equal return_object_id, unis_object_id
     unis.each do |u|
       u.programs.each do |p|
         assert_instance_of String, p.name
@@ -178,10 +178,10 @@ class TestWhere < Goo::TestCase
     unis = University.where.all
     unis_return = University.where.models(unis)
                             .include(programs: [:name, students: [:name]]).to_a
-    assert unis_return.object_id == unis.object_id
+    assert_equal unis_return.object_id, unis.object_id
     return_object_id = unis.map { |x| x.object_id }.uniq.sort
     unis_object_id = unis.map { |x| x.object_id }.uniq.sort
-    assert return_object_id == unis_object_id
+    assert_equal return_object_id, unis_object_id
     st_count = 0
     unis.each do |u|
       u.programs.each do |p|
@@ -193,18 +193,18 @@ class TestWhere < Goo::TestCase
         end
       end
     end
-    assert st_count == Student.all.length + 1 #one student is enrolled in two programs
+    assert_equal st_count, Student.all.length + 1 #one student is enrolled in two programs
     
     #two levels in steps
     unis = University.where.all
 
     #first step
     unis_return = University.where.models(unis).include(programs: [:name]).to_a
-    assert unis_return.object_id == unis.object_id
-    assert unis.length == unis_return.length
+    assert_equal unis_return.object_id, unis.object_id
+    assert_equal unis.length, unis_return.length
     return_object_id = unis.map { |x| x.object_id }.uniq.sort
     unis_object_id = unis.map { |x| x.object_id }.uniq.sort
-    assert return_object_id == unis_object_id
+    assert_equal return_object_id, unis_object_id
     p_step_one_ids = Set.new
     unis.each do |u|
       u.programs.each do |p|
@@ -215,11 +215,11 @@ class TestWhere < Goo::TestCase
 
     #second step 
     unis_return = University.where.models(unis).include(programs: [students: [:name]]).to_a
-    assert unis_return.object_id == unis.object_id
-    assert unis.length == unis_return.length
+    assert_equal unis_return.object_id, unis.object_id
+    assert_equal unis.length, unis_return.length
     return_object_id = unis.map { |x| x.object_id }.uniq.sort
     unis_object_id = unis.map { |x| x.object_id }.uniq.sort
-    assert return_object_id == unis_object_id
+    assert_equal return_object_id, unis_object_id
     p_step_two_ids = Set.new
     unis.each do |u|
       u.programs.each do |p|
@@ -228,7 +228,7 @@ class TestWhere < Goo::TestCase
     end
 
     #nested object ids have to be the same in the second loading
-    assert p_step_one_ids == p_step_two_ids
+    assert_equal p_step_one_ids, p_step_two_ids
     st_count = 0
     unis.each do |u|
       u.programs.each do |p|
@@ -240,7 +240,7 @@ class TestWhere < Goo::TestCase
         end
       end
     end
-    assert st_count == Student.all.length + 1 #one student is enrolled in two programs
+    assert_equal st_count, Student.all.length + 1 #one student is enrolled in two programs
 
   end
 
@@ -331,50 +331,50 @@ class TestWhere < Goo::TestCase
     students = Student.where(enrolled: 
                              Program.find(RDF::URI.new("http://example.org/program/Stanford/BioInformatics")).first)
                   .include(:name, :birth_date, enrolled: [:name]).all
-    assert students.length == 2
-    assert students.map { |x| x.name }.sort == ["Daniel","Susan"]
+    assert_equal 2, students.length
+    assert_equal ["Daniel","Susan"], students.map { |x| x.name }.sort
     
     #if programs have the same id then the share the same memory reference
     programs = []
     students.each do |st|
       programs.concat(st.enrolled)
     end
-    assert programs.length == 3
+    assert_equal 3, programs.length
     programs.each do |p|
       assert_instance_of String, p.name
       programs.each do |p2|
         if p.id == p2.id
-          assert p.object_id == p2.object_id
+          assert_equal p.object_id, p2.object_id
         end
       end
     end
-    assert programs.uniq.length == 2
+    assert_equal 2, programs.uniq.length
 
     #Students in a university
     students = Student.where(
       enrolled: [ university: University.find("Stanford").first ])
       .include(:name, :birth_date, enrolled: [category: [:code ]]).all
-    assert students.length == 3
-    assert students.map { |x| x.name }.sort == ["Daniel","John","Susan"]
+    assert_equal 3, students.length
+    assert_equal ["Daniel","John","Susan"], students.map { |x| x.name }.sort
     students = students.sort_by { |x| x.name  }
     daniel = students.first
-    assert daniel.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort == [
+    assert_equal [
       ["Biology", "Computer Science", "Medicine"],
-      ["Computer Science", "Electronics", "Engineering", "Mathematics"]]
+      ["Computer Science", "Electronics", "Engineering", "Mathematics"]], daniel.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
     john = students[1]
-    assert john.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort == [
-      ["Computer Science", "Electronics", "Engineering", "Mathematics"]]
+    assert_equal [
+      ["Computer Science", "Electronics", "Engineering", "Mathematics"]], john.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
     susan = students.last
-    assert susan.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort == [
-      ["Biology", "Computer Science", "Medicine"]]
+    assert_equal [
+      ["Biology", "Computer Science", "Medicine"]], susan.enrolled.map { |p| p.category.map { |c| c.code }.sort }.sort
 
     categories = []
     students.each do |st|
       categories.concat(st.enrolled.map { |p| p.category }.flatten)
     end
-    assert categories.length == 14
+    assert_equal 14, categories.length
     uniq_object_refs = categories.map { |x| x.object_id }.uniq
-    assert uniq_object_refs.length == 6
+    assert_equal 6, uniq_object_refs.length
 
   end
 
@@ -384,7 +384,7 @@ class TestWhere < Goo::TestCase
                       .include(:name)
                 .include(enrolled: [:name, university: [ :address ]]).all
 
-    assert students.map { |x| x.name }.sort == ["Daniel","John","Susan"]
+    assert_equal ["Daniel","John","Susan"], students.map { |x| x.name }.sort
     students.each do |s|
       s.enrolled do |p|
         assert_instance_of String, p.name
@@ -403,14 +403,14 @@ class TestWhere < Goo::TestCase
     students = Student.where(enrolled: [category: [ code: "Biology" ]])
                         .and(enrolled: [category: [ code: "Chemistry" ]]).all
 
-    assert students.map { |x| x.id.to_s } == ["http://goo.org/default/student/Louis"] 
+    assert_equal ["http://goo.org/default/student/Louis"], students.map { |x| x.id.to_s } 
 
     #daniel, robert, tim and john ok
     students = Student.where(enrolled: [category: [ code: "Mathematics" ]])
                           .and(enrolled: [category: [ code: "Engineering" ]]).all
-    assert students.map { |x| x.id.to_s }.sort == ["http://goo.org/default/student/Daniel",
+    assert_equal ["http://goo.org/default/student/Daniel",
     "http://goo.org/default/student/John","http://goo.org/default/student/Robert",
-    "http://goo.org/default/student/Tim"] 
+    "http://goo.org/default/student/Tim"], students.map { |x| x.id.to_s }.sort 
 
 
     pattern = Goo::Base::Pattern.new(category: [ code: "Mathematics" ])
@@ -418,7 +418,7 @@ class TestWhere < Goo::TestCase
     #daniel ko. a program with both categories not a student with both categories
     #no one
     students = Student.where(enrolled: pattern).all
-    assert students.length == 0
+    assert_equal 0, students.length
 
   end
 
@@ -429,7 +429,7 @@ class TestWhere < Goo::TestCase
                         .and(enrolled: [category: [ code: "Chemistry" ]])
                         .and(enrolled: [category: [ code: "Biology" ]])
                         .all
-    assert students.map { |x| x.id.to_s } == ["http://goo.org/default/student/Louis"] 
+    assert_equal ["http://goo.org/default/student/Louis"], students.map { |x| x.id.to_s } 
 
   end
 
@@ -438,7 +438,7 @@ class TestWhere < Goo::TestCase
     prs = Program.where(category: [code: "Medicine"])
                         .or(category: [code: "Engineering"]).all
     #all of them 9
-    assert prs.length == 9
+    assert_equal 9, prs.length
    
     #programs in medicine or engineering
     prs = Program.where(category: [code: "Medicine"])
@@ -446,7 +446,7 @@ class TestWhere < Goo::TestCase
     prs.each do |p|
       assert p.id.to_s["BioInformatics"] || p.id.to_s["Medicine"]
     end
-    assert prs.length == 6
+    assert_equal 6, prs.length
   end
 
   def test_where_direct_attributes
@@ -454,21 +454,21 @@ class TestWhere < Goo::TestCase
                 .or(name: "Louis")
                 .or(name: "Lee")
                 .or(name: "John").all
-    assert st.length == 4
+    assert_equal 4, st.length
 
     st = Student.where(name: "Daniel")
                 .and(name: "John").all
-    assert st.length == 0
+    assert_equal 0, st.length
 
     st = Student.where(name: "Daniel")
                 .and(birth_date: DateTime.parse('1978-01-04')).all
-    assert st.length == 1
+    assert_equal 1, st.length
     assert st.first.id.to_s["Daniel"]
 
     st = Student.where(name: "Daniel")
                 .or(name: "Louis")
                 .and(birth_date: DateTime.parse('1978-01-04'))
-    assert st.length == 1
+    assert_equal 1, st.length
     assert st.first.id.to_s["Daniel"]
 
   end
@@ -481,7 +481,7 @@ class TestWhere < Goo::TestCase
                   .and(enrolled: [category: [ code: "Medicine" ]])
                   .and(enrolled: [category: [ code: "Chemistry" ]]).all
     
-    assert st.length == 1
+    assert_equal 1, st.length
     assert st.first.id.to_s["Louis"]
   end
 
@@ -498,8 +498,8 @@ class TestWhere < Goo::TestCase
                        .or(name: "Susan")
                        .and(enrolled: [ category: [ code: "Medicine" ]]) 
                           .include(:name, enrolled: [ university: [ address: [ :country ]]]).all
-    assert st.length == 2
-    assert st.first.name != st[1].name
+    assert_equal 2, st.length
+    refute_equal st.first.name, st[1].name
     st.each do |p|
       assert (p.name == "Susan" || p.name == "Daniel")
       assert Array, p.enrolled
@@ -515,49 +515,49 @@ class TestWhere < Goo::TestCase
 
     f = Goo::Filter.new(:birth_date) > DateTime.parse('1978-01-03')
     st = Student.where.filter(f).all
-    assert st.map { |x| x.id.to_s }.sort == ["http://goo.org/default/student/Daniel",
+    assert_equal ["http://goo.org/default/student/Daniel",
                                              "http://goo.org/default/student/Lee",
                                              "http://goo.org/default/student/Louis",
-                                             "http://goo.org/default/student/Robert"]
+                                             "http://goo.org/default/student/Robert"], st.map { |x| x.id.to_s }.sort
 
     f = (Goo::Filter.new(:birth_date) <= DateTime.parse('1978-01-01'))
           .or(Goo::Filter.new(:birth_date) >= DateTime.parse('1978-01-07'))
     st = Student.where.filter(f).all
-    assert st.map { |x| x.id.to_s }.sort == [
+    assert_equal [
       "http://goo.org/default/student/Robert",
-      "http://goo.org/default/student/Susan"]
+      "http://goo.org/default/student/Susan"], st.map { |x| x.id.to_s }.sort
 
     f = (Goo::Filter.new(:birth_date) <= DateTime.parse('1978-01-01'))
           .or(Goo::Filter.new(:name) == "Daniel")
     st = Student.where.filter(f).all
-    assert st.map { |x| x.id.to_s }.sort == [
+    assert_equal [
       "http://goo.org/default/student/Daniel",
-      "http://goo.org/default/student/Susan"]
+      "http://goo.org/default/student/Susan"], st.map { |x| x.id.to_s }.sort
 
     f = (Goo::Filter.new(:birth_date) > DateTime.parse('1978-01-02'))
           .and(Goo::Filter.new(:birth_date) < DateTime.parse('1978-01-06'))
     st = Student.where.filter(f).all
-    assert st.map { |x| x.id.to_s }.sort == [
+    assert_equal [
       "http://goo.org/default/student/Daniel",
       "http://goo.org/default/student/Louis",
-      "http://goo.org/default/student/Tim"]
+      "http://goo.org/default/student/Tim"], st.map { |x| x.id.to_s }.sort
 
 
     f = Goo::Filter.new(enrolled: [ :credits ]) > 8
     st = Student.where.filter(f).all
-    assert st.map { |x| x.id.to_s } == ["http://goo.org/default/student/Louis"]
+    assert_equal ["http://goo.org/default/student/Louis"], st.map { |x| x.id.to_s }
 
     #students without awards
     f = Goo::Filter.new(:awards).unbound
     st = Student.where.filter(f)
                 .include(:name)
                 .all
-    assert st.map { |x| x.name }.sort == ["John","Tim","Louis","Lee","Robert"].sort
+    assert_equal st.map { |x| x.name }.sort, ["John","Tim","Louis","Lee","Robert"].sort
 
     #unbound on some non existing property
     f = Goo::Filter.new(enrolled: [ :xxx ]).unbound
     st = Student.where.filter(f).all
-    assert st.length == 7
+    assert_equal 7, st.length
 
     f = Goo::Filter.new(:name).regex("n") # will find all students that contains "n" in there name
     st = Student.where.filter(f).include(:name).all # return "John" , "Daniel"  and  "Susan"
@@ -569,17 +569,17 @@ class TestWhere < Goo::TestCase
   def test_aggregated
     #students and awards default
     sts = Student.where.include(:name).aggregate(:count,:awards).all
-    assert sts.length == 7
+    assert_equal 7, sts.length
     sts.each do |st|
       agg = st.aggregates.first
-      assert agg.attribute == :awards
-      assert agg.aggregate == :count
+      assert_equal :awards, agg.attribute
+      assert_equal :count, agg.aggregate
       if st.name == "Susan"
-        assert agg.value == 1
+        assert_equal 1, agg.value
       elsif st.name == "Daniel"
-        assert agg.value == 2
+        assert_equal 2, agg.value
       else
-        assert agg.value == 0
+        assert_equal 0, agg.value
       end
     end
 
@@ -594,25 +594,25 @@ class TestWhere < Goo::TestCase
                     .all
                     .select { |x| x.aggregates.first.value > 1 }
 
-    assert sts.length == 1
-    assert sts.first.name == "Daniel"
+    assert_equal 1, sts.length
+    assert_equal "Daniel", sts.first.name
 
     #Categories per student program categories
     sts = Student.where.include(:name).aggregate(:count, enrolled: [:category]).all
-    assert sts.length == 7
+    assert_equal 7, sts.length
     data = { "Tim" => 4, "John" => 4, "Susan" => 3, 
       "Daniel" => 6, "Louis" => 3, "Lee" => 3, "Robert" => 4 }
     sts.each do |st|
-      assert st.aggregates.first.value == data[st.name]
+      assert_equal st.aggregates.first.value, data[st.name]
     end
     
     
     #Inverse
     #universities with more than 3 programs
     us = University.where.include(:name).aggregate(:count, :programs).all
-    assert us.length == 3
+    assert_equal 3, us.length
     us.each do |u|
-      assert u.aggregates.first.value == 3
+      assert_equal 3, u.aggregates.first.value
     end
 
     #double inverse
@@ -628,9 +628,9 @@ class TestWhere < Goo::TestCase
   # more optimized way of counting that does not create objects
   def test_count
     programs = Program.where(name: "BioInformatics", university: [ address: [ country: "US" ]]).all
-    assert programs.length == Program.where(name: "BioInformatics", university: [ address: [ country: "US" ]]).count
+    assert_equal programs.length, Program.where(name: "BioInformatics", university: [ address: [ country: "US" ]]).count
 
-    assert 9 == Program.where.count
+    assert_equal 9, Program.where.count
   end
 
   def test_include_inverse_with_find

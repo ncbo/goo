@@ -170,7 +170,7 @@ class TestValidators < Goo::TestCase
     m.first_name = 'Michael'
     refute m.valid?
     assert_equal 1, m.errors.keys.length
-    assert m.errors[:first_name][:safe_text_5].include?('and must not exceed 5 characters')
+    assert_includes m.errors[:first_name][:safe_text_5], 'and must not exceed 5 characters'
 
     m.first_name = 'Joe'
     m.description = 'The name Susan 🌍 carries a rich history'

@@ -46,17 +46,17 @@ class TestInverse < Goo::TestCase
   end
 
   def test_inverse_retrieval
-    assert Project.range(:tasks) == Task
-    assert Task.range(:project) == Project
-    assert Goo.models[:task] == Task
-    assert Goo.models[:project] == Project
-    assert Project.attributes(:list).include?(:tasks)
+    assert_equal Task, Project.range(:tasks)
+    assert_equal Project, Task.range(:project)
+    assert_equal Task, Goo.models[:task]
+    assert_equal Project, Goo.models[:project]
+    assert_includes Project.attributes(:list), :tasks
 
     project = Project.new(name: "Goo")
     Project.find("Goo").first.delete if project.exist?
     assert project.valid?
     project.save
-    assert Project.where.include(:tasks).all.first.tasks == []
+    assert_equal [], Project.where.include(:tasks).all.first.tasks
     assert project.persistent?
     assert_equal(0,
       GooTest.count_pattern(
@@ -72,13 +72,13 @@ class TestInverse < Goo::TestCase
     #task => project
     5.times do |i|
       task = Task.find("task_#{i}").include(:project).first
-      assert task.project.first.id == project.id
+      assert_equal task.project.first.id, project.id
     end
 
     #project => task
     project = Project.find("Goo").include(:tasks).first
     assert_equal(5, project.tasks.length)
-    assert project.tasks.map { |x| x.id.to_s[33].to_i }.sort == [0,1,2,3,4]
+    assert_equal [0,1,2,3,4], project.tasks.map { |x| x.id.to_s[33].to_i }.sort
 
 
     #do not allow to assign inverse properties
@@ -104,7 +104,7 @@ class TestInverse < Goo::TestCase
     Task.find("task_3").first.delete()
     Task.find("task_4").first.delete()
     assert_equal(2, project.tasks.length)
-    assert project.tasks.map { |x| x.id.to_s[33].to_i }.sort == [3,4]
+    assert_equal [3,4], project.tasks.map { |x| x.id.to_s[33].to_i }.sort
     project = Project.find("Goo").include(:tasks).first
     project.delete
 

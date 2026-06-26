@@ -17,7 +17,7 @@ class TestSolrSchemaGenerator < Minitest::Test
   end
 
   def test_string_ci_exact_omits_term_freq_and_positions
-    assert_equal true, find_type('string_ci_exact')[:omitTermFreqAndPositions],
+    assert find_type('string_ci_exact')[:omitTermFreqAndPositions],
                  'string_ci_exact must set omitTermFreqAndPositions for binary scoring'
   end
 

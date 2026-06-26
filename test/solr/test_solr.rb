@@ -246,10 +246,10 @@ class TestSolr < Goo::TestCase
     field = connector.fetch_all_fields.select { |f| f['name'] == 'test' }.first
 
     refute_nil field
-    assert_equal field['type'], 'string'
-    assert_equal field['indexed'], true
-    assert_equal field['stored'], true
-    assert_equal field['multiValued'], true
+    assert_equal 'string', field['type']
+    assert field['indexed']
+    assert field['stored']
+    assert field['multiValued']
 
     connector.delete_field('test')
   end

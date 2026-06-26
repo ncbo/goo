@@ -21,7 +21,7 @@ module TestReadOnly
         st.klass= Student
         assert st.name
         assert st.is_a?Struct
-        assert st.id.class == RDF::URI
+        assert_instance_of RDF::URI, st.id
       end
     end
 
@@ -31,8 +31,8 @@ module TestReadOnly
                 .include(:name,:birth_date)
                 .first
       assert st.kind_of?(Struct)
-      assert st.id == RDF::URI.new("http://goo.org/default/student/Tim")
-      assert st.name == "Tim"
+      assert_equal st.id, RDF::URI.new("http://goo.org/default/student/Tim")
+      assert_equal "Tim", st.name
       assert st.birth_date.kind_of?(DateTime)
     end
 
