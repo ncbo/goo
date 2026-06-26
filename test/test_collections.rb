@@ -17,7 +17,7 @@ class User < Goo::Base::Resource
   attribute :issues, inverse: { on: Issue, attribute: :owner }
 end
 
-class TestCollection < MiniTest::Unit::TestCase
+class TestCollection < Goo::TestCase
   def initialize(*args)
     super(*args)
   end

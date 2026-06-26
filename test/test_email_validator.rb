@@ -2,7 +2,7 @@ require_relative 'test_case.rb'
 
 module Goo
   module Validators
-    class TestEmail < MiniTest::Unit::TestCase
+    class TestEmail < Goo::TestCase
 
       def dummy_instance
         @dummy ||= Object.new

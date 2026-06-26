@@ -21,13 +21,13 @@ end
 
 
 
-class TestInverse < MiniTest::Unit::TestCase
+class TestInverse < Goo::TestCase
 
   def initialize(*args)
     super(*args)
   end
 
-  def self.before_suite
+  def before_all
     Task.all.each do |x|
       x.delete
     end
@@ -36,7 +36,7 @@ class TestInverse < MiniTest::Unit::TestCase
     end
   end
 
-  def self.after_suite
+  def after_all
     Task.all.each do |x|
       x.delete
     end

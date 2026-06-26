@@ -3,7 +3,7 @@ require_relative './app/models'
 
 module TestIndex
 
-  class TestSchemaless < MiniTest::Unit::TestCase
+  class TestSchemaless < Goo::TestCase
 
     def initialize(*args)
       super(*args)
@@ -12,7 +12,7 @@ module TestIndex
     def setup
     end
 
-    def self.before_suite
+    def before_all
       graph = RDF::URI.new(Test::Models::DATA_ID)
 
       database = Test::Models::Database.new
@@ -28,7 +28,7 @@ module TestIndex
                             mime_type="application/x-turtle")
     end
 
-    def self.after_suite
+    def after_all
       graph = RDF::URI.new(Test::Models::DATA_ID)
       result = Goo.sparql_data_client.delete_graph(graph)
       database = Test::Models::Database.find(RDF::URI.new(Test::Models::DATA_ID)).first

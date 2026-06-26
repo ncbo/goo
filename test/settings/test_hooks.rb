@@ -24,7 +24,7 @@ class TestHookModel < Goo::Base::Resource
 
 end
 
-class TestHooksSetting < MiniTest::Unit::TestCase
+class TestHooksSetting < Goo::TestCase
 
   def test_model_hooks
     TestHookModel.find("test").first&.delete

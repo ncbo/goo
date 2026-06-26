@@ -2,7 +2,7 @@ require_relative '../test_case'
 require 'benchmark'
 
 
-class TestSolr < MiniTest::Unit::TestCase
+class TestSolr < Goo::TestCase
   ALIAS_GUARD_FIXTURES = %w[
     test_shadow_target
     test_shadow_bootstrap
@@ -12,7 +12,7 @@ class TestSolr < MiniTest::Unit::TestCase
     test_fresh_alias_bootstrap
   ].freeze
 
-  def self.before_suite
+  def before_all
     @@connector = SOLR::SolrConnector.new(Goo.search_conf, 'test')
     @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
@@ -28,7 +28,7 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.init
   end
 
-  def self.after_suite
+  def after_all
     @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
     @@connector.delete_collection('test2')

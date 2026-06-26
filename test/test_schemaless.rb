@@ -23,15 +23,15 @@ module TestSchemaless
                         enforce: [:class, :list]
   end
 
-  class TestSchemaless < MiniTest::Unit::TestCase
+  class TestSchemaless < Goo::TestCase
 
     def initialize(*args)
       super(*args)
     end
 
 
-    def self.before_suite
-      _delete
+    def before_all
+      self.class._delete
       graph = RDF::URI.new(ONT_ID)
 
       ont = Ontology.new
@@ -63,8 +63,8 @@ module TestSchemaless
       ont.delete if ont
     end
 
-    def self.after_suite
-      _delete
+    def after_all
+      self.class._delete
     end
 
     def test_alias_props

@@ -10,7 +10,7 @@ module TestEnum
     enum VALUES 
   end 
 
-  class TestEnum < MiniTest::Unit::TestCase
+  class TestEnum < Goo::TestCase
     def initialize(*args)
       super(*args)
     end

@@ -53,7 +53,7 @@ class PersonPersistent < Goo::Base::Resource
   end
 end
 
-class TestBasicPersistence < MiniTest::Unit::TestCase
+class TestBasicPersistence < Goo::TestCase
   def initialize(*args)
     super(*args)
   end
@@ -179,7 +179,10 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert (!st_from_backend.modified?)
 
     st.class.attributes.each do |attr|
-      assert_equal(st.send("#{attr}"), st_from_backend.send("#{attr}"))
+      expected = st.send("#{attr}")
+      actual = st_from_backend.send("#{attr}")
+      # minitest 6 rejects assert_equal(nil, ...); branch so a nil expected value still compares
+      expected.nil? ? assert_nil(actual) : assert_equal(expected, actual)
     end
     assert st_from_backend.fully_loaded?
     assert (st_from_backend.missing_load_attributes.length == 0)
@@ -299,12 +302,12 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert person.persistent?
     assert !person.modified?
 
-    assert_equal nil, person.friends
+    assert_nil person.friends
 
     #default st and created
     assert_instance_of(StatusPersistent, person.status)
     assert_instance_of(DateTime, person.created)
-    assert_equal(nil, person.friends)
+    assert_nil person.friends
 
     person_from_backend = PersonPersistent.find("John").include(PersonPersistent.attributes).first
     assert_equal(person.status.id, person_from_backend.status.id)

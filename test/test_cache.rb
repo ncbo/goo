@@ -1,13 +1,13 @@
 require_relative 'test_case'
 require_relative 'models'
 
-class TestCache < MiniTest::Unit::TestCase
+class TestCache < Goo::TestCase
 
   def initialize(*args)
     super(*args)
   end
 
-  def self.before_suite
+  def before_all
     begin
       Goo.use_cache=false
       GooTestData.create_test_case_data
@@ -21,7 +21,7 @@ class TestCache < MiniTest::Unit::TestCase
     end
   end
 
-  def self.after_suite
+  def after_all
     Goo.use_cache=false
     GooTestData.delete_test_case_data
   end
