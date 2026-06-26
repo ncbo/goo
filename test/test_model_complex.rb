@@ -428,8 +428,8 @@ class TestModelComplex < Goo::TestCase
         assert_equal (Set.new t.parents).length, t.parents.length
         assert_equal 2, t.parents.length
         assert_equal 2, t.definition.length
-        assert t.parents[0].kind_of?(Term)
-        assert t.parents[1].kind_of?(Term)
+        assert_kind_of Term, t.parents[0]
+        assert_kind_of Term, t.parents[1]
         assert_equal 1, (t.parents.select { |x| x.id.to_s == "http://someiri.org/cargo" }).length
         assert_equal 1, (t.parents.select { |x| x.id.to_s == "http://someiri.org/van" }).length
       end
@@ -439,7 +439,7 @@ class TestModelComplex < Goo::TestCase
         assert_equal "mini-van", obj_sy.first
         assert_equal "syn minivan", obj_sy[1]
         assert_equal 1, t.parents.length
-        assert t.parents[0].kind_of?(Term)
+        assert_kind_of Term, t.parents[0]
         assert_equal "http://someiri.org/van", t.parents[0].id.to_s
       end
       if t.id.to_s == "http://someiri.org/vehicle"

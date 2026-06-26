@@ -125,7 +125,7 @@ class TestDSLSetting < Goo::TestCase
     person = model.new
     model_key_name = model.model_name
     assert_respond_to(person, :id)
-    assert(person.kind_of? Goo::Base::Resource)
+    assert_kind_of(Goo::Base::Resource, person)
     refute person.valid?
 
     assert person.errors[:name][:existence]

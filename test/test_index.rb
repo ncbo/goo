@@ -81,8 +81,8 @@ module TestIndex
 
       page = Test::Models::Line.in(db).page(1,5).include(:start,:end).all
       page.each do |line|
-        assert line.start.is_a?(Struct)
-        assert line.end.is_a?(Struct)
+        assert_kind_of Struct, line.start
+        assert_kind_of Struct, line.end
       end
 
       page_i = 1

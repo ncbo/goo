@@ -21,6 +21,11 @@ Minitest:
 Minitest/LiteralAsActualArgument:
   Enabled: true
 
+# assert(obj.kind_of?(K)) / assert(obj.is_a?(K)) -> assert_kind_of(K, obj).
+# Pending cop, off by default; enable explicitly.
+Minitest/AssertKindOf:
+  Enabled: true
+
 # Style cops about how many assertions a test has are noisy for goo's
 # integration-style suites and aren't part of the assertion-idiom cleanup.
 Minitest/MultipleAssertions:

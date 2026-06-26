@@ -148,7 +148,7 @@ class TestBasicPersistence < Goo::TestCase
     id = st.id
     st_from_backend = StatusPersistent.find(id).first
     assert_instance_of StatusPersistent, st_from_backend
-    assert (st_from_backend.kind_of? Goo::Base::Resource)
+    assert_kind_of Goo::Base::Resource, st_from_backend
     assert_equal id, st_from_backend.id
 
     st.class.attributes.each do |attr|
@@ -363,7 +363,7 @@ class TestBasicPersistence < Goo::TestCase
   def test_range
     assert_equal PersonPersistent, PersonPersistent.range(:friends)
     assert_equal StatusPersistent, PersonPersistent.range(:status)
-    assert PersonPersistent.range(:contact_data).new.kind_of?Struct
+    assert_kind_of Struct, PersonPersistent.range(:contact_data).new
   end
 
   def test_bnode
