@@ -80,9 +80,28 @@ module TestSafety
     return if count <= MAX_REDIS_KEYS
     abort("Aborting tests: redis has #{count} keys, expected <= #{MAX_REDIS_KEYS} for a test instance.")
   end
+
+  # Pre-flight: fail fast (before any test runs) if redis or the triplestore is unreachable,
+  # rather than erroring mid-suite. (Solr is already checked when config.test loads.)
+  def self.ensure_backends_reachable!
+    begin
+      Goo.redis_client&.ping
+    rescue StandardError => e
+      abort("Aborting tests: cannot reach Redis at #{Goo.settings.goo_redis_host}:" \
+            "#{Goo.settings.goo_redis_port} (#{e.class}: #{e.message})")
+    end
+
+    begin
+      Goo.sparql_query_client.query("SELECT ?s WHERE { ?s ?p ?o } LIMIT 1")
+    rescue StandardError => e
+      abort("Aborting tests: cannot reach triplestore at #{Goo.settings.goo_host}:" \
+            "#{Goo.settings.goo_port} (#{e.class}: #{e.message})")
+    end
+  end
 end
 
 TestSafety.ensure_safe_test_targets!
+TestSafety.ensure_backends_reachable!
 
 module Goo
   # Per-test SPARQL query-count capture (opt-in: OP_SPARQL_QUERY_COUNTS=1). Records each test's
