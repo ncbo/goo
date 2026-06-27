@@ -84,13 +84,58 @@ end
 
 TestSafety.ensure_safe_test_targets!
 
-# Base class for goo's tests. Includes Minitest::Hooks so suites can define
-# before_all/after_all (run once per suite) — the idiomatic replacement for the
-# old GooTest::Unit#_run_suite before_suite/after_suite.
 module Goo
+  # Per-test SPARQL query-count capture (opt-in: OP_SPARQL_QUERY_COUNTS=1). Records each test's
+  # store-bound query delta so we can spot outliers and diff counts between optimization runs.
+  # Console gets a top-15; a full name-sorted file (OP_SPARQL_QUERY_COUNTS_FILE, default
+  # sparql_query_counts.txt) is written for diffing two runs line-by-line. The per-test count
+  # spans before_setup..after_teardown, so it includes the test's own fixture/setup queries.
+  module SparqlQueryStats
+    @counts = {}
+    class << self
+      def enabled?
+        %w[1 true yes on].include?(ENV['OP_SPARQL_QUERY_COUNTS'].to_s.strip.downcase)
+      end
+
+      def record(test_id, count)
+        @counts[test_id] = count
+      end
+
+      def report(io: $stderr)
+        return if @counts.empty?
+
+        total = @counts.values.sum
+        io.puts "\n[goo] per-test SPARQL query counts: #{@counts.size} tests, " \
+                "#{total} store-bound queries"
+        io.puts '[goo] top 15 by query count:'
+        @counts.sort_by { |_, c| -c }.first(15).each { |id, c| io.puts format('  %6d  %s', c, id) }
+
+        file = ENV['OP_SPARQL_QUERY_COUNTS_FILE'] || 'sparql_query_counts.txt'
+        File.open(file, 'w') { |f| @counts.sort.each { |id, c| f.puts "#{c}\t#{id}" } }
+        io.puts "[goo] full per-test counts (name-sorted, diffable) -> #{file}"
+      end
+    end
+  end
+
+  # Base class for goo's tests. Includes Minitest::Hooks so suites can define
+  # before_all/after_all (run once per suite) — the idiomatic replacement for the
+  # old GooTest::Unit#_run_suite before_suite/after_suite.
   class TestCase < Minitest::Test
     include Minitest::Hooks
     include Goo::TestHelpers # assert_max_sparql_queries / assert_sparql_queries (query budgets)
+
+    def before_setup
+      super
+      @__sparql_q0 = Goo.query_count_total if Goo::SparqlQueryStats.enabled?
+    end
+
+    def after_teardown
+      if Goo::SparqlQueryStats.enabled? && @__sparql_q0
+        Goo::SparqlQueryStats.record("#{self.class}##{name}",
+                                     Goo.query_count_total.to_i - @__sparql_q0.to_i)
+      end
+      super
+    end
   end
 end
 
@@ -100,6 +145,7 @@ Goo.enable_query_count_total
 Minitest.after_run do
   warn "\n[goo] SPARQL during test run: #{Goo.query_count_total} store-bound queries, " \
        "#{Goo.cache_hit_total} cache hits"
+  Goo::SparqlQueryStats.report if Goo::SparqlQueryStats.enabled?
 end
 
 # Test runs must not depend on Solr state left behind by previous (possibly
