@@ -10,6 +10,7 @@ gem "request_store"
 group :test do
   gem "minitest", '~> 6.0'
   gem "minitest-hooks" # before_all/after_all (per-suite once) hooks
+  gem "minitest-reporters" # reporter chain (Spec/Progress + our SPARQL query reporter)
   gem "pry"
   gem 'rubocop', require: false
   gem 'rubocop-minitest', require: false

@@ -18,6 +18,7 @@ end
 
 require 'minitest/autorun'
 require 'minitest/hooks/test' # before_all/after_all: per-suite (once) setup/teardown
+require 'minitest/reporters'
 
 require_relative "../lib/goo.rb"
 require_relative '../lib/goo/test_helpers' # Goo::TestHelpers: assert_max/assert_sparql_queries
@@ -161,33 +162,25 @@ module Goo
     end
   end
 
-  # Formal Minitest reporter (minitest 5+): prints each test's store-bound SPARQL query count
-  # inline as the test completes, reading the per-test tally SparqlQueryStats captured in
-  # after_teardown. Joins minitest's reporter chain via the plugin hook below; opt-in.
-  class SparqlQueryReporter < Minitest::AbstractReporter
-    def initialize(io = $stderr)
-      super()
-      @io = io
-    end
-
-    def record(result)
-      count = Goo::SparqlQueryStats.count_for(result.klass, result.name)
-      return if count.nil? || count.zero?
-
-      @io.puts format('  [sparql] %4d queries  %s#%s', count, result.klass, result.name)
+  # Formal Minitest reporter: prints each test's store-bound SPARQL query count inline as the
+  # test completes, reading the per-test tally SparqlQueryStats captured in after_teardown.
+  # Joined to the reporter chain via Minitest::Reporters.use! below; opt-in. Pass/fail output is
+  # the default reporter's job; the per-test totals + file print in Minitest.after_run.
+  class SparqlQueryReporter < Minitest::Reporters::BaseReporter
+    def record(test)
+      super
+      count = Goo::SparqlQueryStats.count_for(test.klass, test.name)
+      io.puts format('  [sparql] %4d queries  %s#%s', count, test.klass, test.name) if count&.positive?
     end
   end
 end
 
-# Join the inline per-test reporter to Minitest's reporter chain via the plugin hook. Minitest
-# calls plugin_*_init (with reporter set up) for every name in Minitest.extensions; register ours.
-module Minitest
-  def self.plugin_goo_sparql_query_counts_init(_options)
-    reporter.reporters << Goo::SparqlQueryReporter.new if Goo::SparqlQueryStats.enabled?
-  end
-end
-unless Minitest.extensions.include?('goo_sparql_query_counts')
-  Minitest.extensions << 'goo_sparql_query_counts'
+# Install the reporter chain via minitest-reporters: progress output plus our inline per-test
+# SPARQL reporter when enabled. (RM_INFO => running under RubyMine; let the IDE report instead.)
+unless ENV['RM_INFO']
+  reporters = [Minitest::Reporters::ProgressReporter.new]
+  reporters << Goo::SparqlQueryReporter.new if Goo::SparqlQueryStats.enabled?
+  Minitest::Reporters.use!(reporters)
 end
 
 # Minitest has no "before all suites" hook: arm the store-bound SPARQL tally at load time (this
