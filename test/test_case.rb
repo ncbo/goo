@@ -120,6 +120,10 @@ module Goo
         @counts[test_id] = count
       end
 
+      def count_for(klass, name)
+        @counts["#{klass}##{name}"]
+      end
+
       def report(io: $stderr)
         return if @counts.empty?
 
@@ -156,6 +160,34 @@ module Goo
       super
     end
   end
+
+  # Formal Minitest reporter (minitest 5+): prints each test's store-bound SPARQL query count
+  # inline as the test completes, reading the per-test tally SparqlQueryStats captured in
+  # after_teardown. Joins minitest's reporter chain via the plugin hook below; opt-in.
+  class SparqlQueryReporter < Minitest::AbstractReporter
+    def initialize(io = $stderr)
+      super()
+      @io = io
+    end
+
+    def record(result)
+      count = Goo::SparqlQueryStats.count_for(result.klass, result.name)
+      return if count.nil? || count.zero?
+
+      @io.puts format('  [sparql] %4d queries  %s#%s', count, result.klass, result.name)
+    end
+  end
+end
+
+# Join the inline per-test reporter to Minitest's reporter chain via the plugin hook. Minitest
+# calls plugin_*_init (with reporter set up) for every name in Minitest.extensions; register ours.
+module Minitest
+  def self.plugin_goo_sparql_query_counts_init(_options)
+    reporter.reporters << Goo::SparqlQueryReporter.new if Goo::SparqlQueryStats.enabled?
+  end
+end
+unless Minitest.extensions.include?('goo_sparql_query_counts')
+  Minitest.extensions << 'goo_sparql_query_counts'
 end
 
 # Minitest has no "before all suites" hook: arm the store-bound SPARQL tally at load time (this
