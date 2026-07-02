@@ -135,6 +135,10 @@ module Goo
                                                              validate: false,
                                                              redis_cache: @@redis_client)
     @@sparql_backends[name][:backend_name] = opts[:backend_name]
+    # Keep @@use_cache authoritative regardless of add_redis_backend/add_sparql_backend call
+    # order (de-fork review D5): construction injects @@redis_client above, so without this a
+    # host that configures redis FIRST would get caching silently ON while use_cache says off.
+    set_sparql_cache
     @@sparql_backends.freeze
   end
 

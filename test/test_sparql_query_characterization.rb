@@ -112,6 +112,20 @@ class TestSparqlQueryCharacterization < Goo::TestCase
     assert_equal expected, got
   end
 
+  def test_include_direct_uses_bind_on_graphdb
+    # GraphDB takes the same BIND branch as 4store (query_builder.rb#union_bind_in_where);
+    # lock the pair so a backend-dispatch regression can't silently move it (review T-12).
+    expected =
+      'SELECT DISTINCT ?id ?attributeProperty ?attributeObject ' \
+      'FROM <http://goo.org/default/University> ' \
+      'WHERE { ?id a <http://goo.org/default/University> . ' \
+      '?id <http://goo.org/default/name> "Stanford" . ' \
+      'OPTIONAL { { ?id <http://goo.org/default/name> ?attributeObject . ' \
+      'BIND( "name" as ?attributeProperty) } } }'
+    got = sparql_for("graphdb") { University.where(name: "Stanford").include(:name).all }
+    assert_equal expected, got
+  end
+
   # --- union-with-bind: FILTER branch (every other backend) ---------------------
 
   def test_include_direct_uses_filter_on_virtuoso
@@ -137,6 +151,19 @@ class TestSparqlQueryCharacterization < Goo::TestCase
       '{ ?inverseAttributeObject ?attributeProperty ?id . ' \
       'FILTER(?attributeProperty = <http://goo.org/default/university>)  } } }'
     got = sparql_for("virtuoso") { University.where(name: "Stanford").include(:name, :programs).all }
+    assert_equal expected, got
+  end
+
+  def test_include_direct_uses_filter_on_allegrograph
+    # AllegroGraph takes the FILTER branch like Virtuoso; lock it (review T-12).
+    expected =
+      'SELECT DISTINCT ?id ?attributeProperty ?attributeObject ' \
+      'FROM <http://goo.org/default/University> ' \
+      'WHERE { ?id a <http://goo.org/default/University> . ' \
+      '?id <http://goo.org/default/name> "Stanford" . ' \
+      'OPTIONAL { { ?id ?attributeProperty ?attributeObject . ' \
+      'FILTER(?attributeProperty = <http://goo.org/default/name>)  } } }'
+    got = sparql_for("allegrograph") { University.where(name: "Stanford").include(:name).all }
     assert_equal expected, got
   end
 

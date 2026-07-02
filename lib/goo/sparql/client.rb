@@ -33,9 +33,22 @@ module Goo
         result
       end
 
-      # Invalidate the written graph's cached queries AFTER the write commits (super). The
-      # fork invalidated BEFORE the write, opening a stale-repopulation race (proposal Â§3.1).
+      # Invalidate the written graph's cached queries AFTER the write commits (super). The fork
+      # invalidated BEFORE the write; after-write closes that specific stale-repopulation window.
+      # It narrows -- not eliminates -- the classic cache-aside race: a slow reader holding a
+      # pre-write result can still store it after this invalidation (self-heals on next write).
+      #
+      # Parity with the fork (de-fork review D8): an update goo cannot invalidate for -- no
+      # options[:graph], including plain string updates -- is unsupported while caching is on;
+      # fail loudly rather than silently leave stale cache entries behind.
       def update(query, **options)
+        if @cache.redis_cache
+          q_opts = query.respond_to?(:options) ? query.options : {}
+          if !q_opts[:bypass_cache] && q_opts[:graph].nil?
+            raise Exception, "Unsupported cacheable query"
+          end
+        end
+
         result = super
         if @cache.redis_cache && query.respond_to?(:options) && !query.options[:bypass_cache]
           graph = query.options[:graph]

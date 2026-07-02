@@ -14,7 +14,9 @@ module Goo
     #     later `parse_response` to write. The caller stores the result explicitly via `store`,
     #     passing the value it got back from the (vanilla) client.
     #   * Invalidation ordering is the caller's responsibility; Goo::SPARQL::Client invalidates
-    #     AFTER the write commits.
+    #     AFTER the write commits. This narrows (does not eliminate) the fork's stale-repopulation
+    #     window: the classic cache-aside race -- a slow reader re-storing a pre-write result
+    #     after the invalidation -- remains possible and self-heals on the next write.
     #
     # When `redis_cache` is nil the cache is inert: `get` returns nil, `store`/`invalidate` are
     # no-ops. This is the `Goo.use_cache == false` state.
@@ -54,7 +56,13 @@ module Goo
       end
 
       # Write `value` to the cache under this query's graph-set keys.
+      #
+      # Scope matches the fork (de-fork review D3/H-1): only JSON SELECT/ASK results -- an
+      # RDF::Query::Solutions or the ASK boolean -- are cached. The fork wrote the cache solely
+      # from the RESULT_JSON branch of parse_response, so CONSTRUCT/DESCRIBE graph results were
+      # never cached; preserve that scope rather than widen it.
       def store(query, options, value)
+        return unless cacheable_result?(value)
         return unless cacheable?(query, options)
 
         keys = query_cache_key(query, options)
@@ -81,6 +89,11 @@ module Goo
         return false if @redis_cache.nil?
 
         query.instance_of?(::SPARQL::Client::Query) || options[:graphs]
+      end
+
+      # Fork cache scope: JSON SELECT solutions or the ASK boolean; nothing else.
+      def cacheable_result?(value)
+        value.is_a?(::RDF::Query::Solutions) || value == true || value == false
       end
 
       def query_cache_key(query, options)
@@ -115,7 +128,16 @@ module Goo
           begin
             graph = graph.to_s
             graph = "sparql:graph:#{graph}" unless graph.start_with?("sparql:graph:")
-            @redis_cache.del(graph) if @redis_cache.exists?(graph)
+            if @redis_cache.exists?(graph)
+              begin
+                @redis_cache.del(graph)
+              rescue StandardError => e
+                # Parity with the fork: a failed DEL is logged and skipped (the stale entry
+                # self-heals on the next successful invalidation); only exists?/connection
+                # errors reach the outer retry. The original port dropped this log line.
+                warn "warning: error in cache invalidation `#{e}`"
+              end
+            end
           rescue StandardError
             if attempts < 3
               attempts += 1
