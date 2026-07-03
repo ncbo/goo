@@ -47,7 +47,10 @@ module Goo
         @query_logger.around(query, cached: false, user: options[:user], count_cache: cache_on,
                              bytes: -> { Thread.current[:goo_last_response_bytes] }) do
           Goo.tick_query_count # a store-bound read (cache hits above don't tick)
-          result = super
+          # Protect the store round-trip with the SPARQL breaker (review D2): a slow/down endpoint
+          # fails fast (CircuitOpenError -> 503) instead of every worker blocking on the timeout.
+          # Off by default; plain pass-through when the breaker is disabled.
+          result = Goo::SPARQL::Resilience.protect_read(sparql_circuit, Goo::SPARQL::Resilience::SPARQL_ERRORS) { super }
           @cache.store(query, options, result)
           result
         end
@@ -71,13 +74,19 @@ module Goo
 
         result = @query_logger.around(query, cached: false, user: options[:user]) do
           Goo.tick_query_count
-          super
+          Goo::SPARQL::Resilience.protect_read(sparql_circuit, Goo::SPARQL::Resilience::SPARQL_ERRORS) { super }
         end
         if @cache.redis_cache && query.respond_to?(:options) && !query.options[:bypass_cache]
           graph = query.options[:graph]
           @cache.invalidate(graph.to_s) if graph
         end
         result
+      end
+
+      # Per-endpoint breaker name so a slow query endpoint doesn't trip the update endpoint's
+      # breaker (and vice versa).
+      def sparql_circuit
+        @sparql_circuit ||= "goo:sparql:#{url}"
       end
 
       # Vanilla sparql-client posts protocol-1.1 queries as `application/sparql-query` with a
