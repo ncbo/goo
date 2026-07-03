@@ -79,28 +79,43 @@ module Goo
 
       def retrieve_equivalent_predicates()
         return @equivalent_predicates unless @equivalent_predicates.nil?
+        return nil unless @include.first == :unmapped || includes_aliasing()
 
-        equivalent_predicates = nil
-        if @include.first == :unmapped || includes_aliasing()
-          if @where_options_load && @where_options_load[:collection]
-            graph = @where_options_load[:collection].map { |x| x.id }
-          else
-            #TODO review this case
-            raise ArgumentError, "Unmapped wihout collection not tested"
-          end
-          equivalent_predicates = Goo::SPARQL::Queries.sub_property_predicates(graph)
-          #TODO compute closure
-          equivalent_predicates_hash = {}
-          equivalent_predicates.each do |down,up|
-            (equivalent_predicates_hash[up.to_s] ||= Set.new) << down.to_s
-          end
-          equivalent_predicates_hash.delete(Goo.vocabulary(:rdfs)[:label].to_s)
-          closure(equivalent_predicates_hash)
-          equivalent_predicates_hash.each do |k,v|
-            equivalent_predicates_hash[k] << k
-          end
+        unless @where_options_load && @where_options_load[:collection]
+          #TODO review this case
+          raise ArgumentError, "Unmapped wihout collection not tested"
         end
-        return equivalent_predicates_hash
+        graph = @where_options_load[:collection].map { |x| x.id }
+
+        # The sub-property (equivalent-predicates) map for a graph is stable within
+        # a request, but is otherwise recomputed for every aliased/unmapped load --
+        # each one re-fetches the sub-property tuples and re-runs #closure (e.g.
+        # ~17x when building a large class tree). When a request armed the cache
+        # (Goo::Debug), memoize per graph so it is computed once. Outside a request
+        # the cache is nil and we compute each time; goo's redis cache already
+        # invalidates the underlying query, so there is no cross-request staleness.
+        # The map is consumed read-only, so sharing one instance is safe.
+        cache = Thread.current[:goo_equivalent_predicates_cache]
+        @equivalent_predicates =
+          if cache
+            cache[graph.map(&:to_s).sort] ||= compute_equivalent_predicates(graph)
+          else
+            compute_equivalent_predicates(graph)
+          end
+      end
+
+      def compute_equivalent_predicates(graph)
+        tuples = Goo::SPARQL::Queries.sub_property_predicates(graph)
+        equivalent_predicates_hash = {}
+        tuples.each do |down, up|
+          (equivalent_predicates_hash[up.to_s] ||= Set.new) << down.to_s
+        end
+        equivalent_predicates_hash.delete(Goo.vocabulary(:rdfs)[:label].to_s)
+        closure(equivalent_predicates_hash)
+        equivalent_predicates_hash.each do |k, _v|
+          equivalent_predicates_hash[k] << k
+        end
+        equivalent_predicates_hash
       end
 
       def unmmaped_predicates()

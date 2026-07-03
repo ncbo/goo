@@ -514,6 +514,11 @@ module Goo
 
     def call(env)
       Thread.current[:ncbo_debug] = {}
+      # Arm the per-request equivalent-predicates cache: a graph's sub-property map
+      # is stable within a request, so it is computed once instead of per query
+      # (see Goo::Base::Where#retrieve_equivalent_predicates). Cleared in ensure so
+      # it never leaks across requests.
+      Thread.current[:goo_equivalent_predicates_cache] = {}
       status, headers, response = @app.call(env)
       if Thread.current[:ncbo_debug]
         if Thread.current[:ncbo_debug][:sparql_queries]
@@ -530,6 +535,8 @@ module Goo
         end
       end
       return [status, headers, response]
+    ensure
+      Thread.current[:goo_equivalent_predicates_cache] = nil
     end
   end
 
