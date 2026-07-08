@@ -1,3 +1,5 @@
+require 'request_store'
+
 module Goo
   module Base
 
@@ -90,14 +92,16 @@ module Goo
         # The sub-property (equivalent-predicates) map for a graph is stable within
         # a request, but is otherwise recomputed for every aliased/unmapped load --
         # each one re-fetches the sub-property tuples and re-runs #closure (e.g.
-        # ~17x when building a large class tree). When a request armed the cache
-        # (Goo::Debug), memoize per graph so it is computed once. Outside a request
-        # the cache is nil and we compute each time; goo's redis cache already
-        # invalidates the underlying query, so there is no cross-request staleness.
-        # The map is consumed read-only, so sharing one instance is safe.
-        cache = Thread.current[:goo_equivalent_predicates_cache]
+        # ~17x when building a large class tree). Inside a request
+        # (RequestStore.active?, armed by RequestStore::Middleware in the API),
+        # memoize per graph so it is computed once; RequestStore clears the store
+        # when the request ends. Outside a request (cron, scripts) RequestStore is
+        # inactive and we compute each time -- cron is where subPropertyOf data
+        # actually changes, so it must not see a stale map. The map is consumed
+        # read-only, so sharing one instance is safe.
         @equivalent_predicates =
-          if cache
+          if RequestStore.active?
+            cache = RequestStore.store[:goo_equivalent_predicates_cache] ||= {}
             cache[graph.map(&:to_s).sort] ||= compute_equivalent_predicates(graph)
           else
             compute_equivalent_predicates(graph)
