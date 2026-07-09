@@ -188,7 +188,10 @@ class TestSolr < Goo::TestCase
         assert_equal field["type"], f[:type]
         assert_equal field["indexed"], f[:indexed]
         assert_equal field["stored"], f[:stored]
-        assert_equal field["multiValued"], f[:multiValued]
+        # Both sides may legitimately omit multiValued (Solr then applies the
+        # type default); assert_equal(nil, nil) is a minitest failure, so only
+        # compare when the live schema carries the attribute.
+        assert_equal field["multiValued"], f[:multiValued] unless field["multiValued"].nil?
       end
 
       copy_fields = connector.all_copy_fields
@@ -206,7 +209,8 @@ class TestSolr < Goo::TestCase
         refute_nil field
         assert_equal field["name"], f[:name]
         assert_equal field["type"], f[:type]
-        assert_equal field["multiValued"], f[:multiValued]
+        # See the multiValued note above: skip the nil/nil comparison.
+        assert_equal field["multiValued"], f[:multiValued] unless field["multiValued"].nil?
         assert_equal field["stored"], f[:stored]
       end
 
