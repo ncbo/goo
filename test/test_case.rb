@@ -99,6 +99,13 @@ end
 #   Goo.enable_query_count_total                       # before all suites
 #   Minitest.after_run { warn "[goo] SPARQL ..." }     # after all suites
 
+# Test runs must not depend on Solr state left behind by previous (possibly
+# interrupted) runs: rebuild each search collection's schema on its first
+# initialization in this process. Collections init lazily (on first use), so
+# this is a flag rather than an eager call — models register their collections
+# when their test file loads, which can be after this file is required.
+Goo.force_rebuild_search_schema = true
+
 module TestHelpers
   def self.test_reset
     TestSafety.ensure_safe_test_targets!

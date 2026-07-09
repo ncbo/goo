@@ -43,6 +43,13 @@ module SOLR
       # core. This guards against init() with force=false destroying data.
       if collection_exists?(@alias_name) && !alias_exists?(@alias_name)
         @aliased = false
+        # A live collection may carry data-driven fields the generator does
+        # not declare; only ADD what is missing (e.g. a dynamicField dropped
+        # by an interrupted schema update) — never rebuild, which would drop
+        # those fields from the schema and break search on them until a full
+        # reindex. The full rebuild requires explicit force (previously this
+        # early return made force a silent no-op here).
+        force ? init_schema(clear_data: clear_data) : repair_schema_additively
         return self
       end
 
@@ -53,7 +60,11 @@ module SOLR
 
     def init_without_alias(force = false, clear_data: false)
       @aliased = false
-      return if collection_exists?(@collection_name) && !force
+      if collection_exists?(@collection_name)
+        # See init(): additive repair only, unless explicitly forced.
+        force ? init_schema(clear_data: clear_data) : repair_schema_additively
+        return
+      end
 
       create_collection(@collection_name, @num_shards, @replication_factor)
 
@@ -65,7 +76,9 @@ module SOLR
 
       if alias_exists?(@alias_name)
         with_collection(resolve_alias(@alias_name).first) do
-          init_schema(clear_data: clear_data) if force
+          # See init(): additive repair only on the live resolved collection,
+          # unless explicitly forced.
+          force ? init_schema(clear_data: clear_data) : repair_schema_additively
         end
       else
         # Defense-in-depth: the guard in init() should catch this earlier,
