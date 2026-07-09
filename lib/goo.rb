@@ -55,6 +55,7 @@ module Goo
   @@query_logging = false
   @@query_logging_file = './queries.log'
   @@slice_loading_size = 500
+  @@force_rebuild_search_schema = false
 
 
 
@@ -156,6 +157,24 @@ module Goo
 
   def self.use_cache?
     @@use_cache
+  end
+
+  # When enabled, the first initialization of each search collection in this
+  # process rebuilds its schema (init force) instead of trusting whatever an
+  # existing collection contains. FOR TEST/DEV ENVIRONMENTS ONLY: goo's test
+  # harness enables it so runs never depend on state left in Solr by previous
+  # (possibly interrupted) runs. Do NOT enable in production — a forced
+  # rebuild drops every schema field the generator does not declare (e.g.
+  # fields added over time by Solr's data-driven mode), breaking search on
+  # them until a full reindex. Indexed documents themselves are preserved.
+  # Production collections are repaired additively instead (see
+  # SOLR::Schema#repair_schema_additively).
+  def self.force_rebuild_search_schema=(value)
+    @@force_rebuild_search_schema = value
+  end
+
+  def self.force_rebuild_search_schema?
+    @@force_rebuild_search_schema
   end
 
   def self.slice_loading_size=(value)
@@ -398,7 +417,10 @@ module Goo
                                                                    block,
                                                                    num_shards: num_shards,
                                                                    replication_factor: replication_factor)
-    @@search_connection[collection_name].init(force, bootstrap_collection: bootstrap_collection) if initialize_collection
+    # force_rebuild_search_schema? makes the one-time init of this collection
+    # rebuild the schema (see the accessor's comment); afterwards the memoized
+    # connection short-circuits above, so the rebuild happens once per process.
+    @@search_connection[collection_name].init(force || Goo.force_rebuild_search_schema?, bootstrap_collection: bootstrap_collection) if initialize_collection
 
     @@search_connection[collection_name]
   end
