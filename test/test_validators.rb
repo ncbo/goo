@@ -88,17 +88,13 @@ class ProcValidatorsTestModel < Goo::Base::Resource
   end
 end
 
-class TestValidators < MiniTest::Unit::TestCase
+class TestValidators < Goo::TestCase
 
-  def self.before_suite
-    begin
-      GooTestData.create_test_case_data
-    rescue Exception => e
-      puts e.message
-    end
+  def before_all
+    GooTestData.create_test_case_data
   end
 
-  def self.after_suite
+  def after_all
     GooTestData.delete_test_case_data
     GooTestData.delete_all [SymmetricTestModel, InverseOfTestModel]
   end
@@ -129,6 +125,12 @@ class TestValidators < MiniTest::Unit::TestCase
     p.username = "good.username"
     assert p.valid?
 
+    p.username = "admin"
+    assert p.valid?
+
+    p.username = "administrator"
+    assert p.valid?
+
     p.username = "bad-username"
     refute p.valid?
 
@@ -136,6 +138,18 @@ class TestValidators < MiniTest::Unit::TestCase
     refute p.valid?
 
     p.username = "badusername with spaces"
+    refute p.valid?
+
+    p.username = " goodusername"
+    refute p.valid?
+
+    p.username = "goodusername "
+    refute p.valid?
+
+    p.username = " goodusername "
+    refute p.valid?
+
+    p.username = "root"
     refute p.valid?
 
     p.username = "<input type=\"text\" value=\"jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(2)//>\\x3e\"></input>"
@@ -152,7 +166,7 @@ class TestValidators < MiniTest::Unit::TestCase
     m.first_name = 'Michael'
     refute m.valid?
     assert_equal 1, m.errors.keys.length
-    assert m.errors[:first_name][:safe_text_5].include?('and must not exceed 5 characters')
+    assert_includes m.errors[:first_name][:safe_text_5], 'and must not exceed 5 characters'
 
     m.first_name = 'Joe'
     m.description = 'The name Susan 🌍 carries a rich history'

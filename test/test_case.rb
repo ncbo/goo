@@ -16,8 +16,8 @@ if ENV["COVERAGE"] == "true" || ENV["CI"] == "true"
   end
 end
 
-require 'minitest/unit'
-MiniTest::Unit.autorun
+require 'minitest/autorun'
+require 'minitest/hooks/test' # before_all/after_all: per-suite (once) setup/teardown
 
 require_relative "../lib/goo.rb"
 require_relative '../config/config.test'
@@ -83,6 +83,29 @@ end
 
 TestSafety.ensure_safe_test_targets!
 
+# Base class for goo's tests. Includes Minitest::Hooks so suites can define
+# before_all/after_all (run once per suite) — the idiomatic replacement for the
+# old GooTest::Unit#_run_suite before_suite/after_suite.
+module Goo
+  class TestCase < Minitest::Test
+    include Minitest::Hooks
+  end
+end
+
+# Minitest has no "before all suites" hook. Run-wide setup goes at load time
+# here (this file is required before autorun's at_exit fires); run-wide teardown
+# / reporting goes in Minitest.after_run. When feature/sparql-query-logging
+# rebases onto this, its run-total reporting lands here, e.g.:
+#   Goo.enable_query_count_total                       # before all suites
+#   Minitest.after_run { warn "[goo] SPARQL ..." }     # after all suites
+
+# Test runs must not depend on Solr state left behind by previous (possibly
+# interrupted) runs: rebuild each search collection's schema on its first
+# initialization in this process. Collections init lazily (on first use), so
+# this is a flag rather than an eager call — models register their collections
+# when their test file loads, which can be after this file is required.
+Goo.force_rebuild_search_schema = true
+
 module TestHelpers
   def self.test_reset
     TestSafety.ensure_safe_test_targets!
@@ -98,41 +121,6 @@ module TestHelpers
 end
 
 class GooTest
-
-  class Unit < MiniTest::Unit
-
-    def before_suites
-    end
-
-    def after_suites
-    end
-
-    def _run_suites(suites, type)
-      begin
-        before_suites
-        super(suites, type)
-      ensure
-        after_suites
-      end
-    end
-
-    def _run_suite(suite, type)
-      ret = []
-      [Goo.slice_loading_size].each do |slice_size|
-        puts "\nrunning test with slice_loading_size=#{slice_size}"
-        Goo.slice_loading_size=slice_size
-        begin
-          suite.before_suite if suite.respond_to?(:before_suite)
-          ret += super(suite, type)
-        ensure
-          suite.after_suite if suite.respond_to?(:after_suite)
-        end
-      end
-      return ret
-    end
-  end
-
-  MiniTest::Unit.runner = GooTest::Unit.new
 
   def self.triples_for_subject(resource_id)
     rs = Goo.sparql_query_client.query("SELECT * WHERE { #{resource_id.to_ntriples} ?p ?o . }")

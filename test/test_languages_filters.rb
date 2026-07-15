@@ -17,8 +17,8 @@ class ExamplePlace < Goo::Base::Resource
   attribute :label, namespace: :rdf, enforce: [ :list ]
 end
 
-class TestLanguageFilter < MiniTest::Unit::TestCase
-  def self.before_suite
+class TestLanguageFilter < Goo::TestCase
+  def before_all
     RequestStore.store[:requested_lang] = Goo.main_languages.first
     graph = RDF::URI.new(Test::Models::DATA_ID)
 
@@ -39,7 +39,7 @@ class TestLanguageFilter < MiniTest::Unit::TestCase
       mime_type = "application/x-turtle")
   end
 
-  def self.after_suite
+  def after_all
     graph = RDF::URI.new(Test::Models::DATA_ID)
     Goo.sparql_data_client.delete_graph(graph)
     database = Test::Models::Database.find(RDF::URI.new(Test::Models::DATA_ID)).first

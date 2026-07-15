@@ -1,9 +1,8 @@
-require 'minitest/unit'
-MiniTest::Unit.autorun
+require 'minitest/autorun'
 
 require_relative '../lib/goo/search/solr/solr_schema_generator'
 
-class TestSolrSchemaGenerator < MiniTest::Unit::TestCase
+class TestSolrSchemaGenerator < Minitest::Test
   def setup
     @types = SOLR::SolrSchemaGenerator.new.field_types_to_add
   end
@@ -18,7 +17,7 @@ class TestSolrSchemaGenerator < MiniTest::Unit::TestCase
   end
 
   def test_string_ci_exact_omits_term_freq_and_positions
-    assert_equal true, find_type('string_ci_exact')[:omitTermFreqAndPositions],
+    assert find_type('string_ci_exact')[:omitTermFreqAndPositions],
                  'string_ci_exact must set omitTermFreqAndPositions for binary scoring'
   end
 

@@ -23,15 +23,15 @@ module TestSchemaless
                         enforce: [:class, :list]
   end
 
-  class TestSchemaless < MiniTest::Unit::TestCase
+  class TestSchemaless < Goo::TestCase
 
     def initialize(*args)
       super(*args)
     end
 
 
-    def self.before_suite
-      _delete
+    def before_all
+      self.class._delete
       graph = RDF::URI.new(ONT_ID)
 
       ont = Ontology.new
@@ -63,8 +63,8 @@ module TestSchemaless
       ont.delete if ont
     end
 
-    def self.after_suite
-      _delete
+    def after_all
+      self.class._delete
     end
 
     def test_alias_props
@@ -72,52 +72,50 @@ module TestSchemaless
       cognition_term = RDF::URI.new( 
           "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_5400000")
       k = Klass.find(cognition_term).in(ontology).include(:label,:synonym,:definition).first
-      assert k.label == nil #it has rdfs:label but no nemo:pref_label
-      assert k.definition == ["a cognitive_process is a mental process engaging one or more systems in the intermediary or integrative processing of signals from the internal (visceral) and external (somatic) environments. It is often the result of a sensory_process (bottom-up cognition). It may be mediated by an emotion_process (motivated cognition) or by another cognitive_process, such as memory or expectancy based on prior experience (top-down cognition)."]
+      assert_nil k.label #it has rdfs:label but no nemo:pref_label
+      assert_equal ["a cognitive_process is a mental process engaging one or more systems in the intermediary or integrative processing of signals from the internal (visceral) and external (somatic) environments. It is often the result of a sensory_process (bottom-up cognition). It may be mediated by an emotion_process (motivated cognition) or by another cognitive_process, such as memory or expectancy based on prior experience (top-down cognition)."], k.definition
 
-      assert k.synonym.sort == 
-            ["http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800",
+      assert_equal k.synonym.sort, ["http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800",
              "cognition"].sort
 
       pato = RDF::URI.new("http://purl.org/obo/owl/PATO#PATO_0000051")
       k = Klass.find(pato).in(ontology).include(:label,:synonym,:definition).first
-      assert k.label == "morphology"
-      assert k.definition == ["A quality of a single physical entity inhering in the bearer by virtue of the bearer's size, shape and structure."]
-      assert k.synonym == []
+      assert_equal "morphology", k.label
+      assert_equal ["A quality of a single physical entity inhering in the bearer by virtue of the bearer's size, shape and structure."], k.definition
+      assert_equal [], k.synonym
     end
 
     def test_find_include_schemaless
       ontology = Ontology.find(RDF::URI.new(ONT_ID)).first
-      cognition_term = RDF::URI.new( 
+      cognition_term = RDF::URI.new(
           "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_5400000")
       k = Klass.find(cognition_term).in(ontology).first
-      assert k.id.to_s == cognition_term 
+      assert_equal k.id.to_s, cognition_term
       assert_raises Goo::Base::AttributeNotLoaded do
         k.label
       end
       k = Klass.find(cognition_term).in(ontology).include(:label).first
-      assert k.ontology.id == ONT_ID
-      assert k.id.to_s == cognition_term 
-      assert k.label == nil
+      assert_equal ONT_ID, k.ontology.id
+      assert_equal k.id.to_s, cognition_term
+      assert_nil k.label
       assert_raises Goo::Base::AttributeNotLoaded do
         k.definition
       end
       k = Klass.find(cognition_term).in(ontology).include(Klass.attributes).first
-      assert k.label == nil
-      assert k.definition.length == 1
+      assert_nil k.label
+      assert_equal 1, k.definition.length
       assert k.definition.first["a cognitive_process is a mental process"]
-      assert k.synonym.sort == ["cognition",
- "http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800"]
-      assert k.comment == []
-      assert k.parents.length == 1
-      assert k.parents.first.id.to_s == 
-        "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_4320000"
+      assert_equal ["cognition",
+ "http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800"], k.synonym.sort
+      assert_equal [], k.comment
+      assert_equal 1, k.parents.length
+      assert_equal "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_4320000", k.parents.first.id.to_s
 
       where = Klass.find(cognition_term).in(ontology).include(:unmapped)
       k =  where.first
       enter = 0
 
-      assert k.unmapped.keys.include?(Goo.vocabulary(:nemo)[:definition])
+      assert_includes k.unmapped.keys, Goo.vocabulary(:nemo)[:definition]
 
       k.unmapped.each do |p,vals|
         if p.to_s == Goo.vocabulary(:nemo)[:synonym].to_s
@@ -136,22 +134,21 @@ module TestSchemaless
           enter += 1
         end
       end
-      assert enter == 3
+      assert_equal 3, enter
       assert_raises Goo::Base::AttributeNotLoaded do
         k.label
       end
       Klass.map_attributes(k,where.equivalent_predicates)
-      assert k.label == nil
-      assert k.definition.length == 1
+      assert_nil k.label
+      assert_equal 1, k.definition.length
       assert k.definition.first["a cognitive_process is a mental process"]
       assert k.onto_definition.first["mental_process is a brain_ph"]
-      assert k.synonym.sort == ["cognition",
- "http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800"]
-      assert k.comment == []
-      assert k.parents.length == 1
+      assert_equal ["cognition",
+ "http://ontology.neuinfo.org/NIF/Function/NIF-Function.owl#birnlex_1800"], k.synonym.sort
+      assert_equal [], k.comment
+      assert_equal 1, k.parents.length
       assert_instance_of Klass, k.parents.first
-      assert k.parents.first.id.to_s == 
-        "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_4320000"
+      assert_equal "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_4320000", k.parents.first.id.to_s
 
     end
 
@@ -161,7 +158,7 @@ module TestSchemaless
       cognition_term = 
         RDF::URI.new "http://purl.bioontology.org/NEMO/ontology/NEMO.owl#NEMO_5400000"
       k = Klass.find(cognition_term).in(ontology).include(parents: [:label]).first
-      assert k.parents.first.label == nil
+      assert_nil k.parents.first.label
     end
 
 
@@ -186,7 +183,7 @@ module TestSchemaless
       end
 
     end
-    
+
     def test_all_pages_loop
       ontology = Ontology.find(RDF::URI.new(ONT_ID)).first
       page = 1
@@ -208,8 +205,7 @@ module TestSchemaless
       begin
         if paging.instance_variable_get("@page_i") > 1
           #we test that the predicates array is always the same object.
-          assert predicates_array.object_id == 
-            paging.instance_variable_get("@predicates").object_id
+          assert_equal predicates_array.object_id, paging.instance_variable_get("@predicates").object_id
         end
 
         page = paging.to_a
@@ -222,10 +218,10 @@ module TestSchemaless
         end
         total += page.length
         paging.page(page.next_page, 100) if page.next?
-        assert page.aggregate == 1713
+        assert_equal 1713, page.aggregate
       end while(page.next?)
-      assert all_ids.length == all_ids.uniq.length
-      assert total == 1713
+      assert_equal all_ids.length, all_ids.uniq.length
+      assert_equal 1713, total
     end
 
     def test_index_roots
@@ -243,7 +239,7 @@ module TestSchemaless
                 .all
       roots.each do |r|
         #roots have no parents
-        assert Klass.find(r.id).in(ontology).include(:parents).first.parents == []
+        assert_equal [], Klass.find(r.id).in(ontology).include(:parents).first.parents
       end
     end
   end

@@ -53,7 +53,7 @@ class PersonPersistent < Goo::Base::Resource
   end
 end
 
-class TestBasicPersistence < MiniTest::Unit::TestCase
+class TestBasicPersistence < Goo::TestCase
   def initialize(*args)
     super(*args)
   end
@@ -79,16 +79,16 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     st = StatusPersistent.new(description: "some text", active: true)
     assert_equal("some text", st.description)
     assert st.valid?
-    assert !st.persistent?
+    refute st.persistent?
     assert st.modified?
-    assert !st.exist?
-    assert st == st.save 
+    refute st.exist?
+    assert_equal st, st.save 
     assert st.persistent?
-    assert !st.modified?
-    assert nil == st.delete
-    assert !st.exist?
-    assert !st.persistent?
-    assert !st.modified?
+    refute st.modified?
+    assert_nil st.delete
+    refute st.exist?
+    refute st.persistent?
+    refute st.modified?
   end
 
   def test_unique_duplicates_error
@@ -99,7 +99,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert st.valid?
     st.save
     st = StatusPersistent.new(description: "some text", active: true)
-    assert !st.valid?
+    refute st.valid?
     assert_instance_of String, st.errors[:description][:duplicate]
     st = StatusPersistent.new(description: "some text 2", active: true)
     assert st.valid?
@@ -117,14 +117,14 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     #same object but new. We cannot a save duplicate id.
     #code should not contains errors because we cannot tell apart the resources.
     st = StatusPersistent.new(description: "some text", active: true, code: "001")
-    assert !st.valid?
+    refute st.valid?
     assert_instance_of String, st.errors[:description][:duplicate]
-    assert nil == st.errors[:code]
+    assert_nil st.errors[:code]
 
     #here a differente description therefore a different resource.
     #code should contain a duplication error.
     st = StatusPersistent.new(description: "some text 2", active: true, code: "001")
-    assert !st.valid?
+    refute st.valid?
     assert_instance_of String, st.errors[:code][:unique]
 
     st = StatusPersistent.new(description: "some text 2", active: true, code: "002")
@@ -137,7 +137,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert_raises Goo::Base::NotValidException do
       st.save
     end
-    assert !st.persistent?
+    refute st.persistent?
   end
 
   def test_find
@@ -148,7 +148,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     id = st.id
     st_from_backend = StatusPersistent.find(id).first
     assert_instance_of StatusPersistent, st_from_backend
-    assert (st_from_backend.kind_of? Goo::Base::Resource)
+    assert_kind_of Goo::Base::Resource, st_from_backend
     assert_equal id, st_from_backend.id
 
     st.class.attributes.each do |attr|
@@ -158,14 +158,14 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     end
 
     assert st_from_backend.persistent?
-    assert !st_from_backend.modified?
+    refute st_from_backend.modified?
 
-    assert nil == st_from_backend.delete
-    assert !st_from_backend.exist?
+    assert_nil st_from_backend.delete
+    refute st_from_backend.exist?
 
     not_existent_id = RDF::URI("http://some.bogus.id/x")
     st_from_backend = StatusPersistent.find(not_existent_id).first
-    assert st_from_backend.nil?
+    assert_nil st_from_backend
   end
 
   def test_find_load_all
@@ -179,13 +179,16 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert (!st_from_backend.modified?)
 
     st.class.attributes.each do |attr|
-      assert_equal(st.send("#{attr}"), st_from_backend.send("#{attr}"))
+      expected = st.send("#{attr}")
+      actual = st_from_backend.send("#{attr}")
+      # minitest 6 rejects assert_equal(nil, ...); branch so a nil expected value still compares
+      expected.nil? ? assert_nil(actual) : assert_equal(expected, actual)
     end
     assert st_from_backend.fully_loaded?
     assert (st_from_backend.missing_load_attributes.length == 0)
 
-    assert nil == st_from_backend.delete
-    assert !st_from_backend.exist?
+    assert_nil st_from_backend.delete
+    refute st_from_backend.exist?
   end
 
   def test_find_load_some
@@ -203,12 +206,12 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
       st_from_backend.description
     end
 
-    assert !st_from_backend.fully_loaded?
+    refute st_from_backend.fully_loaded?
     assert (st_from_backend.missing_load_attributes.length == 2)
     assert (st_from_backend.missing_load_attributes.include?(:description))
 
-    assert nil == st_from_backend.delete
-    assert !st_from_backend.exist?
+    assert_nil st_from_backend.delete
+    refute st_from_backend.exist?
   end
 
   def test_update_name_with_attribute
@@ -234,11 +237,11 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     st_from_backend = StatusPersistent.find("some text").include(:active).first
     assert_instance_of(StatusPersistent, st_from_backend)
     assert_equal(st.id, st_from_backend.id)
-    assert_equal(true, st_from_backend.active)
+    assert(st_from_backend.active)
     st_from_backend.delete
 
     st_from_backend = StatusPersistent.find("not there").first
-    assert st_from_backend.nil?
+    assert_nil st_from_backend
   end
 
   def test_update
@@ -249,15 +252,15 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     st.active = false
     assert(st.modified?)
     st.save
-    assert(!st.modified?)
+    refute(st.modified?)
 
     st_from_backend = StatusPersistent.find(st.id).include(:active).first
     assert (st_from_backend.persistent?)
-    assert !st_from_backend.modified?
-    assert_equal(false, st_from_backend.active)
+    refute st_from_backend.modified?
+    refute(st_from_backend.active)
 
-    assert nil == st_from_backend.delete
-    assert !st_from_backend.exist?
+    assert_nil st_from_backend.delete
+    refute st_from_backend.exist?
   end
 
   def test_update_array_values
@@ -282,7 +285,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert_equal ["A", "B", "C"], arr_from_backend.many.sort
 
     arr_from_backend.delete
-    assert !arr_from_backend.exist?
+    refute arr_from_backend.exist?
   end
 
   def test_person_save
@@ -297,14 +300,14 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert person.valid?
     person.save
     assert person.persistent?
-    assert !person.modified?
+    refute person.modified?
 
-    assert_equal nil, person.friends
+    assert_nil person.friends
 
     #default st and created
     assert_instance_of(StatusPersistent, person.status)
     assert_instance_of(DateTime, person.created)
-    assert_equal(nil, person.friends)
+    assert_nil person.friends
 
     person_from_backend = PersonPersistent.find("John").include(PersonPersistent.attributes).first
     assert_equal(person.status.id, person_from_backend.status.id)
@@ -315,7 +318,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     assert_equal(person.created.xmlschema, person_from_backend.created.xmlschema)
 
     person_from_backend.delete
-    assert !person_from_backend.exist?
+    refute person_from_backend.exist?
     st.delete
   end
 
@@ -330,7 +333,7 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     person2.friends = [person1]
 
     #dependent objects must be persistant
-    assert !person2.valid?
+    refute person2.valid?
     assert person2.errors[:friends][:person_persistent]
 
     person1.save
@@ -344,23 +347,23 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
 
 
     person1.delete
-    assert 0 == GooTest.triples_for_subject(person1.id)
+    assert_equal 0, GooTest.triples_for_subject(person1.id)
     person2.delete
-    assert 0 == GooTest.triples_for_subject(person2.id)
+    assert_equal 0, GooTest.triples_for_subject(person2.id)
   end
 
   def test_empty_list
     person1 = PersonPersistent.new(name: "John", multiple_values: [1,2,3,4], one_number: 99,
                                    birth_date: DateTime.parse('2001-02-03T04:05:06.12'))
     person1.save
-    assert PersonPersistent.find(person1.id).include(:friends).first.friends.length == 0
+    assert_equal 0, PersonPersistent.find(person1.id).include(:friends).first.friends.length
     person1.delete
   end
 
   def test_range
-    assert PersonPersistent == PersonPersistent.range(:friends)
-    assert StatusPersistent == PersonPersistent.range(:status)
-    assert PersonPersistent.range(:contact_data).new.kind_of?Struct
+    assert_equal PersonPersistent, PersonPersistent.range(:friends)
+    assert_equal StatusPersistent, PersonPersistent.range(:status)
+    assert_kind_of Struct, PersonPersistent.range(:contact_data).new
   end
 
   def test_bnode
@@ -374,10 +377,10 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     person1.save
 
     from_backend = PersonPersistent.find("John").include(:birth_date, :contact_data).first
-    assert from_backend.contact_data.class == Array
-    assert from_backend.contact_data.length == 1
-    assert from_backend.contact_data.first.line1 == "line1 value"
-    assert from_backend.contact_data.first.line2 == "line2 value"
+    assert_instance_of Array, from_backend.contact_data
+    assert_equal 1, from_backend.contact_data.length
+    assert_equal "line1 value", from_backend.contact_data.first.line1
+    assert_equal "line2 value", from_backend.contact_data.first.line2
 
     person2 = PersonPersistent.new(name: "Lewis", multiple_values: [1,2,3,4], one_number: 99,
                                    birth_date: DateTime.parse('2001-02-03T04:05:06.12'))
@@ -389,17 +392,17 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     pps = PersonPersistent.where.include(:name,:contact_data).all
     pps.each do |pp|
       if pp.name == "John"
-        assert pp.contact_data.length == 1
-        assert pp.contact_data.first.line1 == "line1 value"
-        assert pp.contact_data.first.line2 == "line2 value"
+        assert_equal 1, pp.contact_data.length
+        assert_equal "line1 value", pp.contact_data.first.line1
+        assert_equal "line2 value", pp.contact_data.first.line2
       elsif pp.name == "Lewis"
-        assert pp.contact_data.length == 2
+        assert_equal 2, pp.contact_data.length
         pp.contact_data.each do |s|
           assert (s.line1 == "p2 line1 value" && s.line2 == "p2 line2 value") ||
                     (s.line1 == "p2 line1 value X" && s.line2 == "p2 line2 value Y")
         end
       else
-        assert false
+        flunk "unexpected person: #{pp.name}"
       end
     end
 
@@ -407,10 +410,10 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
       p.delete
     end
 
-    assert 0 == GooTest.triples_for_subject(person1.id)
-    assert 0 == GooTest.triples_for_subject(person2.id)
-    assert 0 == GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line1].to_ntriples} ?o")
-    assert 0 == GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line2].to_ntriples} ?o")
+    assert_equal 0, GooTest.triples_for_subject(person1.id)
+    assert_equal 0, GooTest.triples_for_subject(person2.id)
+    assert_equal 0, GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line1].to_ntriples} ?o")
+    assert_equal 0, GooTest.count_pattern("?p #{Goo.vocabulary(nil)[:line2].to_ntriples} ?o")
     st.delete
   end
 
@@ -430,8 +433,8 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     met.save
     ont.metric = met
     ont.save
-    assert Dep::Ontology.all.length == 1
-    assert Dep::Metric.all.length == 1
+    assert_equal 1, Dep::Ontology.all.length
+    assert_equal 1, Dep::Metric.all.length
 
     ont = Dep::Ontology.where.include(:metric, :name).all.first   
     
@@ -441,8 +444,8 @@ class TestBasicPersistence < MiniTest::Unit::TestCase
     ont.metric.delete
     ont.delete
 
-    assert Dep::Ontology.all.length == 0
-    assert Dep::Metric.all.length == 0
+    assert_equal 0, Dep::Ontology.all.length
+    assert_equal 0, Dep::Metric.all.length
 
   end
 

@@ -64,14 +64,14 @@ class Term < Goo::Base::Resource
 
 end
 
-class TestModelComplex < MiniTest::Unit::TestCase
+class TestModelComplex < Goo::TestCase
 
 
   def initialize(*args)
     super(*args)
   end
 
-  def self.before_suite
+  def before_all
     Goo.use_cache = false
     if GooTest.count_pattern("?s ?p ?o") > 100000
       raise Exception, "Too many triples in KB, does not seem right to run tests"
@@ -80,7 +80,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
 
-  def self.after_suite
+  def after_all
     Goo.use_cache = false
     Goo.sparql_data_client.delete_graph(Submission.uri_type.to_s)
   end
@@ -89,7 +89,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     x = Term.new 
     y = x.methodBased
     x.methodBased
-    assert y == "aaaa"
+    assert_equal "aaaa", y
     assert_raises ArgumentError do
       x.methodBased= "aaaa"
     end
@@ -101,7 +101,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     # Chech the methodBased is not included
     y = Term.find(x.id).in(sub).include(:methodBased).first
     assert_kind_of TestComplex::Term, y
-    refute y.loaded_attributes.include?(:methodBased)
+    refute_includes y.loaded_attributes, :methodBased
     
     assert_raises ArgumentError do
       y = Term.find(x.id).in(sub).include(methodBased: [:prefLabel]).first
@@ -112,7 +112,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     assert_kind_of Array, y
     refute_empty y
     assert_kind_of TestComplex::Term, y.first
-    refute y.first.loaded_attributes.include?(:methodBased)
+    refute_includes y.first.loaded_attributes, :methodBased
     
     # Chech the methodBased is brought by the bring
     y = Term.find(x.id).in(sub).first
@@ -150,8 +150,8 @@ class TestModelComplex < MiniTest::Unit::TestCase
       vehicle.prefLabel = "vehicle#{x}"
       vehicle.synonym = ["transport#{x}", "vehicles#{x}"]
       vehicle.definition = ["vehicle def 1", "vehicle def 2"]
-      assert !vehicle.valid?
-      assert !vehicle.errors[:id].nil?
+      refute vehicle.valid?
+      refute_nil vehicle.errors[:id]
       vehicle.id = RDF::URI.new "http://someiri.org/vehicle/#{x}"
       assert vehicle.valid?
       vehicle.save
@@ -164,21 +164,21 @@ class TestModelComplex < MiniTest::Unit::TestCase
       "GRAPH #{ss1.id.to_ntriples} { ?s a #{Term.type_uri(ss1).to_ntriples} . }")
 
     res =  Term.find("http://someiri.org/vehicle/0").in(ss1).first
-    assert res.id == RDF::URI.new("http://someiri.org/vehicle/0")
+    assert_equal res.id, RDF::URI.new("http://someiri.org/vehicle/0")
 
     Term.where.in([ss1,ss2]).include(:prefLabel,:synonym).all.each do |term|
       assert [0,1,3,4,6,7,9].index(term.id.to_s[-1].to_i)
-      assert term.prefLabel.to_s[-1].to_i == term.id.to_s[-1].to_i
+      assert_equal term.prefLabel.to_s[-1].to_i, term.id.to_s[-1].to_i
       term.synonym.each do |sy|
-        assert sy.to_s[-1].to_i == term.id.to_s[-1].to_i
+        assert_equal sy.to_s[-1].to_i, term.id.to_s[-1].to_i
       end
     end
     
     Term.where.in([ss3]).include(:prefLabel,:synonym).all.each do |term|
       assert [2,5,8].index(term.id.to_s[-1].to_i)
-      assert term.prefLabel.to_s[-1].to_i == term.id.to_s[-1].to_i
+      assert_equal term.prefLabel.to_s[-1].to_i, term.id.to_s[-1].to_i
       term.synonym.each do |sy|
-        assert sy.to_s[-1].to_i == term.id.to_s[-1].to_i
+        assert_equal sy.to_s[-1].to_i, term.id.to_s[-1].to_i
       end
     end
 
@@ -213,8 +213,8 @@ class TestModelComplex < MiniTest::Unit::TestCase
     vehicle.prefLabel = "vehicle"
     vehicle.synonym = ["transport", "vehicles"]
     vehicle.definition = ["vehicle def 1", "vehicle def 2"]
-    assert !vehicle.valid?
-    assert !vehicle.errors[:id].nil?
+    refute vehicle.valid?
+    refute_nil vehicle.errors[:id]
     vehicle.id = RDF::URI.new "http://someiri.org/vehicle"
     assert vehicle.valid?
     vehicle.save
@@ -226,11 +226,11 @@ class TestModelComplex < MiniTest::Unit::TestCase
     end
 
     res =  Term.find("http://someiri.org/vehicle").in(submission).first
-    assert res.id == RDF::URI.new("http://someiri.org/vehicle")
+    assert_equal res.id, RDF::URI.new("http://someiri.org/vehicle")
 
     #nil
     res =  Term.find("http://xxx").in(submission).first
-    assert res.nil?
+    assert_nil res
 
     #should fail no collection 
     assert_raises ArgumentError do
@@ -243,14 +243,14 @@ class TestModelComplex < MiniTest::Unit::TestCase
           .first
 
     assert_instance_of Term, ts
-    assert "vehicle" == ts.prefLabel
-    assert ts.synonym.length == 2
-    assert (ts.synonym.select { |s| s == "transport"}).length == 1
-    assert (ts.synonym.select { |s| s == "vehicles"}).length == 1
+    assert_equal "vehicle", ts.prefLabel
+    assert_equal 2, ts.synonym.length
+    assert_equal 1, (ts.synonym.select { |s| s == "transport"}).length
+    assert_equal 1, (ts.synonym.select { |s| s == "vehicles"}).length
     
     #all terms for a collection
     terms = Term.where.in(submission).include(Term.attributes).all
-    assert terms.length == 1
+    assert_equal 1, terms.length
     term = terms[0]
     term.submission.id == RDF::URI.new("http://goo.org/default/submission/submission1")
     term.deprecated = false
@@ -305,14 +305,14 @@ class TestModelComplex < MiniTest::Unit::TestCase
     t2.save
 
    t1x = Term.find(RDF::URI.new("http://someiri.org/term")).in(s1).include(Term.attributes).first
-   assert t1x.prefLabel ==  "label1"
+   assert_equal "label1", t1x.prefLabel
    t2x = Term.find(RDF::URI.new("http://someiri.org/term")).in(s2).include(Term.attributes).first
-   assert t2x.prefLabel ==  "label2"
+   assert_equal "label2", t2x.prefLabel
 
    termsS2 = Term.where.in(s2).all
-   assert termsS2.length == 1
+   assert_equal 1, termsS2.length
    termsS1 = Term.where.in(s1).all
-   assert termsS1.length == 2
+   assert_equal 2, termsS1.length
    [s1, s2].each do |s|
      terms = Term.where.in(s).all
      terms.each do |t|
@@ -404,18 +404,18 @@ class TestModelComplex < MiniTest::Unit::TestCase
     vehicle = Term.find(RDF::URI.new("http://someiri.org/vehicle")).in(submission)
                 .include(:children,:parents).first
     ch = vehicle.children
-    assert ch.length == 2
+    assert_equal 2, ch.length
     (ch.select { |c| c.id.to_s == "http://someiri.org/van" }).length == 1
     (ch.select { |c| c.id.to_s == "http://someiri.org/cargo" }).length == 1
-    assert vehicle.parents == []
+    assert_equal [], vehicle.parents
 
 
 
-    assert cargovan.parents.length == 2
+    assert_equal 2, cargovan.parents.length
     #this is confussing
 
     Term.where.models([ cargovan ]).in(submission).include(:children).all
-    assert cargovan.children == []
+    assert_equal [], cargovan.children
 
     #preload attrs
     terms = Term.in(Submission.find("submission1").first).include(:parents,:synonym,:definition)
@@ -423,30 +423,30 @@ class TestModelComplex < MiniTest::Unit::TestCase
       if t.id.to_s == "http://someiri.org/cargovan"
         assert_instance_of Array, t.parents
         obj_sy = t.synonym.sort
-        assert obj_sy.first == "cargo van"
-        assert obj_sy[1] == "syn cargovan"
-        assert (Set.new t.parents).length == t.parents.length
-        assert t.parents.length == 2
-        assert t.definition.length == 2
-        assert t.parents[0].kind_of?(Term)
-        assert t.parents[1].kind_of?(Term)
-        assert (t.parents.select { |x| x.id.to_s == "http://someiri.org/cargo" }).length == 1
-        assert (t.parents.select { |x| x.id.to_s == "http://someiri.org/van" }).length == 1
+        assert_equal "cargo van", obj_sy.first
+        assert_equal "syn cargovan", obj_sy[1]
+        assert_equal (Set.new t.parents).length, t.parents.length
+        assert_equal 2, t.parents.length
+        assert_equal 2, t.definition.length
+        assert_kind_of Term, t.parents[0]
+        assert_kind_of Term, t.parents[1]
+        assert_equal 1, (t.parents.select { |x| x.id.to_s == "http://someiri.org/cargo" }).length
+        assert_equal 1, (t.parents.select { |x| x.id.to_s == "http://someiri.org/van" }).length
       end
       if t.id.to_s == "http://someiri.org/minivan"
         assert_instance_of Array, t.parents
         obj_sy = t.synonym.sort
-        assert obj_sy.first == "mini-van"
-        assert obj_sy[1] == "syn minivan"
-        assert t.parents.length == 1
-        assert t.parents[0].kind_of?(Term)
-        assert t.parents[0].id.to_s == "http://someiri.org/van"
+        assert_equal "mini-van", obj_sy.first
+        assert_equal "syn minivan", obj_sy[1]
+        assert_equal 1, t.parents.length
+        assert_kind_of Term, t.parents[0]
+        assert_equal "http://someiri.org/van", t.parents[0].id.to_s
       end
       if t.id.to_s == "http://someiri.org/vehicle"
-        assert t.parents == []
+        assert_equal [], t.parents
       end
     end
-    assert terms.length == 5
+    assert_equal 5, terms.length
 
     terms = Term.in(submission)
     terms.each do |t|
@@ -480,21 +480,21 @@ class TestModelComplex < MiniTest::Unit::TestCase
 
     #on demand
     terms = Term.in(submission).include(:synonym,:definition).all
-    assert terms.length == 1
-    assert terms.first.synonym.sort ==  ["transport", "vehicles"]
-    assert terms.first.definition ==  []
+    assert_equal 1, terms.length
+    assert_equal ["transport", "vehicles"], terms.first.synonym.sort
+    assert_equal [], terms.first.definition
 
     #preload
     terms = Term.in(submission).include(:synonym, :definition).all
-    assert terms.length == 1
-    assert terms.first.synonym.sort ==  ["transport", "vehicles"]
-    assert terms.first.definition ==  []
+    assert_equal 1, terms.length
+    assert_equal ["transport", "vehicles"], terms.first.synonym.sort
+    assert_equal [], terms.first.definition
 
     #with find
     term = Term.find(RDF::URI.new("http://someiri.org/vehicle")).in(submission).include(:prefLabel, :synonym, :definition).first
-    assert term.synonym.sort ==  ["transport", "vehicles"]
-    assert term.definition ==  []
-    assert term.prefLabel == "vehicle"
+    assert_equal ["transport", "vehicles"], term.synonym.sort
+    assert_equal [], term.definition
+    assert_equal "vehicle", term.prefLabel
 
   end
 
@@ -571,7 +571,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
       elsif t.id.to_s.include? "term/4"
         assert_equal 0, t.aggregates.first.value
       else
-        assert 1 == 0
+        flunk "unexpected term: #{t.id}"
       end
     end
 
@@ -599,7 +599,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
       elsif t.id.to_s.include? "term/9"
         assert_equal 0, t.aggregates.first.value
       else
-        assert 1 == 0
+        flunk "unexpected term: #{t.id}"
       end
     end
 
@@ -615,7 +615,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
       elsif t.id.to_s.include? "term/1"
         assert_equal 1, t.aggregates.first.value
       else
-        assert 1 == 0
+        flunk "unexpected term: #{t.id}"
       end
     end
 
@@ -625,7 +625,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
     ts.each do |t|
       assert_instance_of String, t.prefLabel
       assert_equal Term, t.klass
-      assert_equal RDF::URI, t.id.class
+      assert_instance_of RDF::URI, t.id
       assert_instance_of Array, t.synonym
     end
 
@@ -634,8 +634,8 @@ class TestModelComplex < MiniTest::Unit::TestCase
     assert_equal 3, ts.length
     ts.each do |t|
       assert_instance_of String, t.prefLabel
-      assert t.klass == Term
-      assert t.id.class == RDF::URI
+      assert_equal Term, t.klass
+      assert_instance_of RDF::URI, t.id
       assert_instance_of Array, t.synonym
     end
 
@@ -650,7 +650,7 @@ class TestModelComplex < MiniTest::Unit::TestCase
       elsif t.id.to_s.include? "term/1"
         assert_equal 1, t.aggregates.first.value
       else
-        assert 1 == 0
+        flunk "unexpected term: #{t.id}"
       end
     end
   end

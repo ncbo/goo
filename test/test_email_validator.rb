@@ -2,7 +2,7 @@ require_relative 'test_case.rb'
 
 module Goo
   module Validators
-    class TestEmail < MiniTest::Unit::TestCase
+    class TestEmail < Goo::TestCase
 
       def dummy_instance
         @dummy ||= Object.new
@@ -28,6 +28,17 @@ module Goo
         assert_valid "john.doe+test@sub.domain.org"
         assert_valid "a_b-c@foo-bar.co.uk"
         assert_valid "user123@domain.io"
+        # punycode TLD domains
+        assert_valid "user@example.xn--p1ai"
+        assert_valid "user@sub.domain.xn--p1ai"
+      end
+
+      def test_case_insensitive_domains
+        # Domain names are case-insensitive (RFC 1035 §2.3.3); uppercase
+        # domains and punycode TLDs must validate the same as lowercase.
+        assert_valid "User@Example.COM"
+        assert_valid "user@EXAMPLE.COM"
+        assert_valid "user@example.XN--P1AI"
       end
 
       def test_invalid_emails_structure
@@ -43,6 +54,15 @@ module Goo
         assert_invalid "user..user@example.com"
         assert_invalid "user@domain..com"
         assert_invalid "user@"
+        assert_invalid "user@example.xn--"
+        assert_invalid "user@example.-xn--p1ai"
+        assert_invalid "user@example.xn--p1ai-"
+      end
+
+      def test_non_ascii_email_addresses
+        assert_invalid "usér@example.com"
+        assert_invalid "user@exämple.com"
+        assert_invalid "用户@例子.公司"
       end
 
       def test_email_length_limits

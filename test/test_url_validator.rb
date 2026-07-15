@@ -9,7 +9,7 @@ class UrlTestModel < Goo::Base::Resource
   attribute :urls, enforce: %i[list url]
 end
 
-class UrlValidatorTest < Minitest::Unit::TestCase
+class UrlValidatorTest < Goo::TestCase
   def test_url_scalar
     u = UrlTestModel.new
     u.url = RDF::URI.new('https://example.com/path?x=1')

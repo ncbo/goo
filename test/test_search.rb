@@ -90,15 +90,15 @@ module TestSearch
     enable_indexing(:test_solr)
   end
 
-  class TestModelSearch < MiniTest::Unit::TestCase
+  class TestModelSearch < Goo::TestCase
 
-    def self.before_suite
-      cleanup_test_collections
+    def before_all
+      self.class.cleanup_test_collections
       Goo.init_search_connections(true)
     end
 
-    def self.after_suite
-      cleanup_test_collections
+    def after_all
+      self.class.cleanup_test_collections
     end
 
     def self.cleanup_test_collections

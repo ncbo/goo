@@ -2,7 +2,7 @@ require_relative '../test_case'
 require 'benchmark'
 
 
-class TestSolr < MiniTest::Unit::TestCase
+class TestSolr < Goo::TestCase
   ALIAS_GUARD_FIXTURES = %w[
     test_shadow_target
     test_shadow_bootstrap
@@ -12,7 +12,7 @@ class TestSolr < MiniTest::Unit::TestCase
     test_fresh_alias_bootstrap
   ].freeze
 
-  def self.before_suite
+  def before_all
     @@connector = SOLR::SolrConnector.new(Goo.search_conf, 'test')
     @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
@@ -28,7 +28,7 @@ class TestSolr < MiniTest::Unit::TestCase
     @@connector.init
   end
 
-  def self.after_suite
+  def after_all
     @@connector.delete_alias('test_alias')
     @@connector.delete_collection('test')
     @@connector.delete_collection('test2')
@@ -188,7 +188,10 @@ class TestSolr < MiniTest::Unit::TestCase
         assert_equal field["type"], f[:type]
         assert_equal field["indexed"], f[:indexed]
         assert_equal field["stored"], f[:stored]
-        assert_equal field["multiValued"], f[:multiValued]
+        # Both sides may legitimately omit multiValued (Solr then applies the
+        # type default); assert_equal(nil, nil) is a minitest failure, so only
+        # compare when the live schema carries the attribute.
+        assert_equal field["multiValued"], f[:multiValued] unless field["multiValued"].nil?
       end
 
       copy_fields = connector.all_copy_fields
@@ -206,7 +209,8 @@ class TestSolr < MiniTest::Unit::TestCase
         refute_nil field
         assert_equal field["name"], f[:name]
         assert_equal field["type"], f[:type]
-        assert_equal field["multiValued"], f[:multiValued]
+        # See the multiValued note above: skip the nil/nil comparison.
+        assert_equal field["multiValued"], f[:multiValued] unless field["multiValued"].nil?
         assert_equal field["stored"], f[:stored]
       end
 
@@ -246,10 +250,10 @@ class TestSolr < MiniTest::Unit::TestCase
     field = connector.fetch_all_fields.select { |f| f['name'] == 'test' }.first
 
     refute_nil field
-    assert_equal field['type'], 'string'
-    assert_equal field['indexed'], true
-    assert_equal field['stored'], true
-    assert_equal field['multiValued'], true
+    assert_equal 'string', field['type']
+    assert field['indexed']
+    assert field['stored']
+    assert field['multiValued']
 
     connector.delete_field('test')
   end

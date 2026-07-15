@@ -43,14 +43,22 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (4.0.13)
-      i18n (~> 0.6, >= 0.6.9)
-      minitest (~> 4.2)
-      multi_json (~> 1.3)
-      thread_safe (~> 0.1)
-      tzinfo (~> 0.3.37)
+    activesupport (8.1.3)
+      base64
+      bigdecimal
+      concurrent-ruby (~> 1.0, >= 1.3.1)
+      connection_pool (>= 2.2.5)
+      drb
+      i18n (>= 1.6, < 2)
+      json
+      logger (>= 1.4.2)
+      minitest (>= 5.1)
+      securerandom (>= 0.3)
+      tzinfo (~> 2.0, >= 2.0.5)
+      uri (>= 0.13.1)
     addressable (2.8.9)
       public_suffix (>= 2.0.2, < 8.0)
+    ast (2.4.3)
     base64 (0.3.0)
     bcp47_spec (0.2.1)
     bigdecimal (3.3.1)
@@ -62,6 +70,7 @@ GEM
     date (3.5.1)
     docile (1.4.1)
     domain_name (0.6.20240107)
+    drb (2.2.3)
     eventmachine (1.2.7)
     faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)
@@ -78,11 +87,13 @@ GEM
     http-accept (1.7.0)
     http-cookie (1.1.0)
       domain_name (~> 0.5)
-    i18n (0.9.5)
+    i18n (1.15.2)
       concurrent-ruby (~> 1.0)
     io-console (0.8.2)
     json (2.19.1)
+    language_server-protocol (3.17.0.5)
     link_header (0.0.8)
+    lint_roller (1.1.0)
     logger (1.7.0)
     macaddr (1.7.2)
       systemu (~> 2.6.5)
@@ -91,8 +102,11 @@ GEM
       logger
       mime-types-data (~> 3.2025, >= 3.2025.0507)
     mime-types-data (3.2026.0303)
-    minitest (4.7.5)
-    multi_json (1.19.1)
+    minitest (6.0.6)
+      drb (~> 2.0)
+      prism (~> 1.5)
+    minitest-hooks (1.5.4)
+      minitest (> 5.3)
     mustermann (3.0.4)
       ruby2_keywords (~> 0.0.1)
     net-ftp (0.3.9)
@@ -106,11 +120,17 @@ GEM
       timeout
     netrc (0.11.0)
     ostruct (0.6.3)
+    parallel (1.28.0)
+    parser (3.3.11.1)
+      ast (~> 2.4.1)
+      racc
+    prism (1.9.0)
     pry (0.16.0)
       coderay (~> 1.1)
       method_source (~> 1.0)
       reline (>= 0.6.0)
     public_suffix (7.0.5)
+    racc (1.8.1)
     rack (3.2.5)
     rack-accept (0.4.5)
       rack (>= 0.4)
@@ -123,6 +143,7 @@ GEM
     rack-session (2.1.1)
       base64 (>= 0.1.0)
       rack (>= 3.0.0)
+    rainbow (3.1.1)
     rake (13.3.1)
     rdf (3.3.4)
       bcp47_spec (~> 0.2)
@@ -147,6 +168,7 @@ GEM
       redis-client (>= 0.22.0)
     redis-client (0.27.0)
       connection_pool
+    regexp_parser (2.12.0)
     reline (0.6.3)
       io-console (~> 0.5)
     request_store (1.7.0)
@@ -160,7 +182,27 @@ GEM
     rsolr (2.6.0)
       builder (>= 2.1.2)
       faraday (>= 0.9, < 3, != 2.0.0)
+    rubocop (1.88.0)
+      json (~> 2.3)
+      language_server-protocol (~> 3.17.0.2)
+      lint_roller (~> 1.1.0)
+      parallel (>= 1.10)
+      parser (>= 3.3.0.2)
+      rainbow (>= 2.2.2, < 4.0)
+      regexp_parser (>= 2.9.3, < 3.0)
+      rubocop-ast (>= 1.49.0, < 2.0)
+      ruby-progressbar (~> 1.7)
+      unicode-display_width (>= 2.4.0, < 4.0)
+    rubocop-ast (1.49.1)
+      parser (>= 3.3.7.2)
+      prism (~> 1.7)
+    rubocop-minitest (0.39.1)
+      lint_roller (~> 1.1)
+      rubocop (>= 1.75.0, < 2.0)
+      rubocop-ast (>= 1.38.0, < 2.0)
+    ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
+    securerandom (0.4.1)
     simplecov (0.22.0)
       docile (~> 1.1)
       simplecov-html (~> 0.11)
@@ -183,12 +225,15 @@ GEM
       eventmachine (~> 1.0, >= 1.0.4)
       logger
       rack (>= 1, < 4)
-    thread_safe (0.3.6)
     tilt (2.7.0)
     time (0.4.2)
       date
     timeout (0.6.1)
-    tzinfo (0.3.62)
+    tzinfo (2.0.6)
+      concurrent-ruby (~> 1.0)
+    unicode-display_width (3.2.0)
+      unicode-emoji (~> 4.1)
+    unicode-emoji (4.2.0)
     uri (1.1.1)
     uuid (2.3.9)
       macaddr (~> 1.0)
@@ -203,7 +248,8 @@ PLATFORMS
 DEPENDENCIES
   activesupport
   goo!
-  minitest (< 5.0)
+  minitest (~> 6.0)
+  minitest-hooks
   net-ftp
   ontoportal_testkit!
   pry
@@ -212,6 +258,8 @@ DEPENDENCIES
   rake
   rdf-raptor!
   request_store
+  rubocop
+  rubocop-minitest
   simplecov
   simplecov-cobertura
   sinatra
