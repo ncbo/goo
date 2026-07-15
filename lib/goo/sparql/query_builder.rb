@@ -156,13 +156,19 @@ module Goo
       end
 
       def ids_filter(ids)
-        filter_id = []
+        return self if ids.empty?
 
-        ids.each do |id|
-          filter_id << "?id = #{id.to_ntriples.to_s.gsub(' ', '%20').gsub("\\u0020", '%20')}"
+        if Goo.backend_4s?
+          filter = ids.map do |id|
+            "?id = #{id.to_ntriples.to_s.gsub(' ', '%20').gsub("\\u0020", '%20')}"
+          end
+          @query.filter filter.join(' || ')
+        else
+          values = ids.map do |id|
+            id.is_a?(RDF::URI) ? RDF::URI(id.to_s.gsub(' ', '%20')) : id
+          end
+          @query.values(:id, *values)
         end
-        filter_id_str = filter_id.join ' || '
-        @query.filter filter_id_str
         self
       end
 
@@ -454,4 +460,3 @@ module Goo
     end
   end
 end
-
