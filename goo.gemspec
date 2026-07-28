@@ -15,6 +15,6 @@ Gem::Specification.new do |s|
   s.add_dependency("redis")
   s.add_dependency("rest-client")
   s.add_dependency("rsolr")
-  s.add_dependency("sparql-client")
+  s.add_dependency("sparql-client", "= 3.2.2") # bolt-ons in lib/goo/sparql/ext assume 3.2.2 internals (to_s, make_post_request, parse_json_value); re-review on bump
   s.add_dependency("uuid")
 end

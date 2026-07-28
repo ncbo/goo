@@ -28,7 +28,7 @@ PATH
       redis
       rest-client
       rsolr
-      sparql-client
+      sparql-client (= 3.2.2)
       uuid
 
 GEM
