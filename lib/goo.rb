@@ -52,8 +52,6 @@ module Goo
   @@uuid = UUID.new
   @@debug_enabled = false
   @@use_cache = false
-  @@query_logging = false
-  @@query_logging_file = './queries.log'
   @@slice_loading_size = 500
   @@force_rebuild_search_schema = false
 
@@ -124,8 +122,7 @@ module Goo
                                                               headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
                                                               read_timeout: 10000,
                                                               validate: false,
-                                                              redis_cache: @@redis_client,
-                                                              logger: query_logging? ? Logger.new(query_logging_file) : nil)
+                                                              redis_cache: @@redis_client)
     @@sparql_backends[name][:update] = Goo::SPARQL::Client.new(opts[:update],
                                                                protocol: "1.1",
                                                                headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
@@ -139,6 +136,10 @@ module Goo
                                                              validate: false,
                                                              redis_cache: @@redis_client)
     @@sparql_backends[name][:backend_name] = opts[:backend_name]
+    # Keep @@use_cache authoritative regardless of add_redis_backend/add_sparql_backend call
+    # order (de-fork review D5): construction injects @@redis_client above, so without this a
+    # host that configures redis FIRST would get caching silently ON while use_cache says off.
+    set_sparql_cache
     @@sparql_backends.freeze
   end
 
@@ -193,25 +194,6 @@ module Goo
     return @@debug_enabled
   end
 
-  def self.query_logging?
-    @@query_logging
-  end
-
-  def self.query_logging_file
-    @@query_logging_file
-  end
-
-  def self.query_logging=(value)
-    @@query_logging = value
-  end
-  def self.query_logging_file=(value)
-    @@query_logging_file = value
-  end
-
-  def self.logger
-    return @@sparql_backends[:main][:query].logger
-  end
-
   def self.add_search_backend(name, *opts)
     opts = opts[0]
     unless opts.include? :service
@@ -231,12 +213,6 @@ module Goo
     set_sparql_cache
   end
 
-  def self.add_query_logger(enabled: false, file: )
-    @@query_logging = enabled
-    @@query_logging_file = file
-    set_query_logging
-  end
-
   def self.set_sparql_cache
     if @@sparql_backends.length > 0 && @@use_cache
       @@sparql_backends.each do |k,epr|
@@ -253,18 +229,6 @@ module Goo
     end
   end
 
-
-  def self.set_query_logging
-    if @@sparql_backends.length > 0 && query_logging?
-      @@sparql_backends.each do |k,epr|
-        epr[:query].logger = Logger.new(query_logging_file)
-      end
-    elsif @@sparql_backends.length > 0
-      @@sparql_backends.each do |k,epr|
-        epr[:query].logger = nil
-      end
-    end
-  end
 
   def self.configure_sanity_check()
     unless @@namespaces.length > 0

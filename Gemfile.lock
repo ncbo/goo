@@ -7,15 +7,6 @@ GIT
       rake (>= 13.0)
 
 GIT
-  remote: https://github.com/ncbo/sparql-client.git
-  revision: 2ac20b217bb7ad2b11305befe0ee77d75e44eac5
-  branch: development
-  specs:
-    sparql-client (3.2.2)
-      net-http-persistent (~> 4.0, >= 4.0.2)
-      rdf (~> 3.2, >= 3.2.11)
-
-GIT
   remote: https://github.com/ruby-rdf/rdf-raptor.git
   revision: 6392ceabf71c3233b0f7f0172f662bd4a22cd534
   ref: 6392ceabf71c3233b0f7f0172f662bd4a22cd534
@@ -37,7 +28,7 @@ PATH
       redis
       rest-client
       rsolr
-      sparql-client
+      sparql-client (= 3.2.2)
       uuid
 
 GEM
@@ -219,6 +210,9 @@ GEM
       rack-protection (= 4.2.1)
       rack-session (>= 2.0.0, < 3)
       tilt (~> 2.0)
+    sparql-client (3.2.2)
+      net-http-persistent (~> 4.0, >= 4.0.2)
+      rdf (~> 3.2, >= 3.2.11)
     systemu (2.6.5)
     thin (2.0.1)
       daemons (~> 1.0, >= 1.0.9)
@@ -263,7 +257,7 @@ DEPENDENCIES
   simplecov
   simplecov-cobertura
   sinatra
-  sparql-client!
+  sparql-client (= 3.2.2)
   thin
   uuid
 

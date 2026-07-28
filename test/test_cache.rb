@@ -154,5 +154,33 @@ class TestCache < Goo::TestCase
     Goo.use_cache=false
   end
 
+  # Goo::SPARQL::Client#update must invalidate the graph's cached queries AFTER the write
+  # commits, not before (the fork invalidated first, opening a stale-repopulation race --
+  # docs/sparql-client-defork-proposal.md §3.1). Record the order of the HTTP write vs. the
+  # cache invalidation around a real update and assert write-then-invalidate.
+  def test_invalidation_happens_after_write
+    Goo.use_cache = true
+    client = Goo.sparql_update_client
+    cache = client.cache
+    order = []
+
+    orig_invalidate = cache.method(:invalidate)
+    orig_write = client.method(:make_post_request)
+    cache.define_singleton_method(:invalidate) { |g| order << :invalidate; orig_invalidate.call(g) }
+    client.define_singleton_method(:make_post_request) { |q, h = {}| order << :write; orig_write.call(q, h) }
+
+    begin
+      stmt = RDF::Statement.new(RDF::URI("http://goo.org/default/order_subj"),
+                                RDF::URI("http://goo.org/default/order_pred"),
+                                RDF::URI("http://goo.org/default/order_obj"))
+      client.delete_data([stmt], graph: RDF::URI("http://goo.org/default/OrderTest"))
+    ensure
+      cache.singleton_class.send(:remove_method, :invalidate)
+      client.singleton_class.send(:remove_method, :make_post_request)
+      Goo.use_cache = false
+    end
+
+    assert_equal [:write, :invalidate], order
+  end
 
 end
