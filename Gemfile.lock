@@ -19,6 +19,7 @@ PATH
   remote: .
   specs:
     goo (0.0.2)
+      activesupport
       addressable (~> 2.8)
       pry
       rdf
@@ -26,6 +27,7 @@ PATH
       rdf-rdfxml
       rdf-vocab
       redis
+      request_store
       rest-client
       rsolr
       sparql-client (= 3.2.2)
