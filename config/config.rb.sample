@@ -19,5 +19,19 @@ Goo.config do |config|
   config.goo_redis_host      = 'localhost'
   config.goo_redis_port      = 6379
   config.bioportal_namespace = 'http://data.bioontology.org/'
+
+  # Mounts Goo::Debug, which adds ncbo-time-goo-* and ncbo-sparql-query-count response headers.
+  # The query count itself is always collected (Goo.request_query_count); this only controls
+  # whether it is published to API callers.
   config.queries_debug       = false
+
+  # SPARQL query logging (off by default; env equivalent OP_QUERIES_LOGGING).
+  # config.query_logging      = true
+  # config.query_logging_file = '/var/log/goo/sparql.log'
+  #
+  # Give the log its own Redis instance. maxmemory/allkeys-lru is per-instance and ignores key
+  # prefixes and db numbers, so pointing the log at the cache Redis lets log volume evict cache
+  # entries (de-fork review D6a). Defaults to the cache Redis above when unset.
+  # config.query_logging_redis_host = 'localhost'
+  # config.query_logging_redis_port = 6380
 end

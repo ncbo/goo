@@ -202,4 +202,42 @@ class TestQueryLogger < Goo::TestCase
     assert(logs.any? { |e| e["query"].to_s.include?("SELECT") })
     refute_nil logs.first["execution_time"]
   end
+
+  # --- D6a: the log Redis is separate from the cache Redis -------------------------------
+  # maxmemory/allkeys-lru is per-INSTANCE and ignores key prefixes and db numbers, so disjoint
+  # goo:qlog:* vs sparql:* keys stop collisions but not cross-eviction. The log therefore gets
+  # its own handle, falling back to the cache Redis only when none is configured.
+
+  def test_log_redis_defaults_to_the_cache_redis
+    assert_same Goo.redis_client, Goo.log_redis_client,
+                "unconfigured, the log must fall back to the cache Redis"
+  end
+
+  def test_add_log_redis_backend_points_the_logger_at_its_own_instance
+    # Same server here (the suite has one Redis), but a distinct client object -- enough to prove
+    # the logger is wired to log_redis_client rather than @@redis_client.
+    Goo.add_log_redis_backend(host: Goo.settings.goo_redis_host, port: Goo.settings.goo_redis_port)
+    refute_same Goo.redis_client, Goo.log_redis_client
+    Goo.enable_query_logging(enabled: true)
+    assert_same Goo.log_redis_client, Goo.query_logger.redis,
+                "the logger must write to the log Redis, not the cache Redis"
+  ensure
+    reset_log_redis_backend
+  end
+
+  def test_adding_the_cache_redis_later_keeps_the_log_handle
+    Goo.add_log_redis_backend(host: Goo.settings.goo_redis_host, port: Goo.settings.goo_redis_port)
+    dedicated = Goo.log_redis_client
+    Goo.add_redis_backend(host: Goo.settings.goo_redis_host, port: Goo.settings.goo_redis_port)
+    assert_same dedicated, Goo.log_redis_client,
+                "configuring the cache Redis must not steal the log's dedicated handle"
+  ensure
+    reset_log_redis_backend
+  end
+
+  # Drop the dedicated handle so later tests see the default fallback again.
+  def reset_log_redis_backend
+    Goo.class_variable_set(:@@log_redis_client, nil)
+    Goo.set_query_logging
+  end
 end
