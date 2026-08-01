@@ -39,6 +39,11 @@ module Goo
 
       REDIS_CIRCUIT = 'goo:redis'.freeze
 
+      # The query log gets its own breaker because D6a puts it on its own Redis INSTANCE: a log
+      # Redis outage must not trip the cache's breaker (or vice versa), or one dependency's
+      # failure would shed load for the other. Only used when logging is enabled.
+      LOG_REDIS_CIRCUIT = 'goo:redis:qlog'.freeze
+
       # Logs a breaker's color transition (green<->red) ONCE per transition -- not per rejected
       # op (review §2A: "Log at state transitions, never per-op"). Calls the optional
       # Resilience.on_state_change hook so a deployment can page / emit a metric.

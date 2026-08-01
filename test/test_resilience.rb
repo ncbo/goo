@@ -130,6 +130,42 @@ class TestResilience < Goo::TestCase
     refute_empty failed, 'the invalidation-failure metric hook should fire'
   end
 
+  # --- query logger under a Redis outage ---------------------------------------------------
+  # Logging is best-effort by definition, but it must also FAIL FAST: without a breaker, a Redis
+  # outage costs every query a connect timeout inside the logger even though the cache breaker is
+  # already open -- logging becomes the slow path it exists to observe.
+
+  def test_logging_never_fails_a_query_when_its_redis_is_down
+    logger = Goo::SPARQL::QueryLogger.new(redis: BoomRedis.new)
+    result = logger.around('SELECT 1', cached: false, user: 'u1', count_cache: true) { :the_result }
+    assert_equal :the_result, result, 'a dead log Redis must not break the query'
+  end
+
+  def test_log_redis_breaker_opens_and_then_skips_without_touching_redis
+    logger = Goo::SPARQL::QueryLogger.new(redis: BoomRedis.new)
+    3.times { logger.around('SELECT 1', cached: false) { :ok } } # threshold is 2 in setup
+
+    probe = Class.new(BoomRedis) do
+      attr_reader :calls
+      def initialize = @calls = 0
+      def method_missing(name, *args, &block) = (@calls += 1; super)
+    end.new
+    logger.redis = probe
+    logger.around('SELECT 1', cached: false) { :ok }
+    assert_equal 0, probe.calls, 'an open log breaker must skip Redis entirely, not time out on it'
+  end
+
+  # The log lives on its own Redis instance (D6a), so its breaker must be independent -- a log
+  # outage must not shed cache reads, which are load-bearing.
+  def test_log_redis_outage_does_not_trip_the_cache_breaker
+    logger = Goo::SPARQL::QueryLogger.new(redis: BoomRedis.new)
+    5.times { logger.around('SELECT 1', cached: false) { :ok } }
+
+    cache = Goo::SPARQL::Cache.new(redis_cache: BoomRedis.new)
+    # If the log had shared the cache's circuit, this would already be CircuitOpenError.
+    assert_raises(REDIS_CONN) { cache.get('SELECT 1', cacheable_opts) }
+  end
+
   # --- D4 backoff bounds -------------------------------------------------------------------
 
   def test_invalidate_backoff_is_bounded_and_grows
