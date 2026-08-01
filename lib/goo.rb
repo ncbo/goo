@@ -231,7 +231,9 @@ module Goo
     opts = opts.first
     host = opts.delete :host
     port = opts.delete(:port) || 6379
-    @@log_redis_client = Redis.new host: host, port: port, timeout: 300
+    # Same tightened timeout as the cache Redis (§7.3): a breaker cannot trip faster than the
+    # call's own timeout, so a slow log Redis must fail in seconds, not minutes.
+    @@log_redis_client = Redis.new host: host, port: port, timeout: redis_timeout
     set_query_logging
   end
 
