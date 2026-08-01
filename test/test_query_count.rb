@@ -88,15 +88,68 @@ class TestQueryCount < Goo::TestCase
     assert_sparql_queries(n) { University.where.all }
   end
 
+  # Drive a rack app the way a server does. RequestStore::Middleware clears its store from a
+  # Rack::BodyProxy on body *close*, not when #call returns -- so a test that skips the close
+  # leaks the store into the next request and silently invalidates itself.
+  def drive(app, env = {})
+    status, headers, body = app.call(env)
+    body.close if body.respond_to?(:close)
+    [status, headers, body]
+  end
+
+  # The per-request count must be collected in a DEFAULT deploy -- i.e. with QUERIES_DEBUG off and
+  # Goo::Debug not mounted at all. Arming used to live in Goo::Debug, which the API mounts only
+  # when Goo.queries_debug? is set (no environment sets it), so the counter was dead in production.
+  # It is keyed off RequestStore instead, whose middleware is always mounted.
+  def test_request_count_is_collected_without_queries_debug
+    count = nil
+    drive(RequestStore::Middleware.new(lambda { |_env|
+      University.where.include(:name).all
+      count = Goo.request_query_count
+      [200, {}, ['ok']]
+    }))
+    assert_equal 1, count, "the per-request count must be armed by RequestStore, not Goo::Debug"
+  end
+
+  def test_request_query_count_is_nil_outside_a_request
+    assert_nil Goo.request_query_count, "no request in flight => no per-request counter"
+  end
+
+  # RequestStore clears its store per request, so counts must not bleed between them.
+  def test_request_counts_do_not_leak_across_requests
+    counts = []
+    app = lambda { |_env|
+      University.where.include(:name).all
+      counts << Goo.request_query_count
+      [200, {}, ['ok']]
+    }
+    2.times { drive(RequestStore::Middleware.new(app)) }
+    assert_equal [1, 1], counts
+    assert_nil Goo.request_query_count, "the store must be cleared once the body is closed"
+  end
+
   # Regression: the queries_debug timing path called an undefined process_query_intl (renamed to
   # process_query_init), so enabling QUERIES_DEBUG raised NoMethodError on every query. Guard it.
+  # Goo::Debug now only *exposes* the count as a header; arming is RequestStore's job. Stacked in
+  # the API's order -- `use Goo::Debug` (app.rb:130) precedes `use RequestStore::Middleware`
+  # (app.rb:148), so Debug is the outer middleware.
   def test_queries_debug_timing_path_runs_and_sets_header
     Goo.queries_debug(true)
     app = ->(_env) { University.where.include(:name).all; [200, {}, ["ok"]] }
-    status, headers, _ = Goo::Debug.new(app).call({})
+    status, headers, _ = drive(Goo::Debug.new(RequestStore::Middleware.new(app)))
     assert_equal 200, status
     refute_nil headers["ncbo-time-goo-process-query"], "debug timing header must be populated"
     assert_equal "1", headers["ncbo-sparql-query-count"]
+  ensure
+    Goo.queries_debug(false)
+  end
+
+  # Outside a request there is no count to report, so the header must be omitted rather than
+  # emitted as a misleading empty string.
+  def test_header_omitted_when_no_request_is_active
+    Goo.queries_debug(true)
+    _, headers, _ = drive(Goo::Debug.new(->(_env) { [200, {}, ['ok']] }))
+    refute_includes headers, "ncbo-sparql-query-count"
   ensure
     Goo.queries_debug(false)
   end

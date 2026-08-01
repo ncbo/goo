@@ -12,6 +12,7 @@ require 'rsolr'
 require 'rest_client'
 require 'redis'
 require 'uuid'
+require 'request_store'
 
 require_relative "goo/config/config"
 require_relative "goo/sparql/sparql"
@@ -47,6 +48,7 @@ module Goo
   @@default_namespace = nil
   @@id_prefix = nil
   @@redis_client = nil
+  @@log_redis_client = nil # query-log Redis (D6a); nil => fall back to @@redis_client
   @@namespaces = {}
   @@pluralize_models = false
   @@uuid = UUID.new
@@ -215,6 +217,27 @@ module Goo
     port = opts.delete(:port) || 6379
     @@redis_client = Redis.new host: host, port: port, timeout: 300
     set_sparql_cache
+    set_query_logging # the log handle may be defaulting to this client
+  end
+
+  # Redis instance for the SPARQL query log, kept separate from the cache (de-fork review D6a).
+  # maxmemory / allkeys-lru is per-INSTANCE and ignores key prefixes and db numbers, so disjoint
+  # goo:qlog:* vs sparql:* keys prevent collisions but NOT cross-eviction: on a shared instance,
+  # log volume evicts cache entries and vice versa. Optional -- unset means the log falls back to
+  # the cache Redis, which is fine while logging is off (the default) but should be provisioned
+  # before enabling logging in an environment where the cache is load-bearing.
+  def self.add_log_redis_backend(*opts)
+    raise Exception, "add_log_redis_backend needs options" if opts.length == 0
+    opts = opts.first
+    host = opts.delete :host
+    port = opts.delete(:port) || 6379
+    @@log_redis_client = Redis.new host: host, port: port, timeout: 300
+    set_query_logging
+  end
+
+  # The Redis the query log writes to: its own instance when configured, else the cache's.
+  def self.log_redis_client
+    @@log_redis_client || @@redis_client
   end
 
   # The query logger attached to the :main query client (records SPARQL text, timing, result
@@ -230,18 +253,38 @@ module Goo
   end
 
   # --- SPARQL query counting -------------------------------------------------------------
-  # Counts store-bound SPARQL round-trips (cache hits don't count) via a thread-local. Unlike
-  # wall time, the count is deterministic for a given code path + data, so it's the right signal
-  # for catching N+1 / query-fan-out regressions in goo/OLD across machines (laptop vs CI).
+  # Counts store-bound SPARQL round-trips (cache hits don't count). Unlike wall time, the count
+  # is deterministic for a given code path + data, so it's the right signal for catching N+1 /
+  # query-fan-out regressions in goo/OLD across machines (laptop vs CI).
   #
-  # Cheap and inert by default: tick_query_count is a no-op unless a counting context is active,
-  # so there's zero overhead in normal operation.
+  # Three independent tallies, all fed by tick_query_count:
+  #   - a thread-local block counter, armed only inside Goo.count_sparql_queries (tests);
+  #   - a per-request counter in RequestStore, armed for the duration of an HTTP request;
+  #   - a process-wide total, armed only by enable_query_count_total (test-run reporting).
+  # Each is a nil-check when unarmed, so there is no overhead in normal operation.
 
-  # Increment the active query counter, if any. Called at the client seam per store round-trip.
+  # Increment whichever counters are active. Called at the client seam per store round-trip.
   def self.tick_query_count
     count = Thread.current[:goo_query_count]
     Thread.current[:goo_query_count] = count + 1 unless count.nil?
+    if RequestStore.active?
+      RequestStore.store[:goo_query_count] = RequestStore.store.fetch(:goo_query_count, 0) + 1
+    end
     @@query_count_total += 1 unless @@query_count_total.nil?
+  end
+
+  # Store-bound SPARQL queries issued so far in the current HTTP request, or nil outside one.
+  #
+  # Deliberately keyed off RequestStore rather than the Goo::Debug middleware: Debug is mounted
+  # only when Goo.queries_debug? is set, which no environment config sets, so anything armed
+  # there is dead in a default production deploy. RequestStore::Middleware is mounted
+  # unconditionally by the API and clears the store per request. Same reasoning as the
+  # equivalent-predicates cache in Goo::Base::Where#retrieve_equivalent_predicates. Outside a
+  # request (cron, scripts) RequestStore is inactive and this returns nil.
+  def self.request_query_count
+    return nil unless RequestStore.active?
+
+    RequestStore.store.fetch(:goo_query_count, 0)
   end
 
   # Counted at the cache-hit branch of Client#query (a hit means caching is on and served the
@@ -296,7 +339,7 @@ module Goo
 
     @@sparql_backends.each_value do |epr|
       logger = if @@query_logging
-                 Goo::SPARQL::QueryLogger.new(redis: @@redis_client, file: @@query_logging_file)
+                 Goo::SPARQL::QueryLogger.new(redis: log_redis_client, file: @@query_logging_file)
                else
                  Goo::SPARQL::QueryLogger.new # inert
                end
@@ -593,7 +636,6 @@ module Goo
 
     def call(env)
       Thread.current[:ncbo_debug] = {}
-      Thread.current[:goo_query_count] = 0 # arm the per-request SPARQL query counter
       status, headers, response = @app.call(env)
       if Thread.current[:ncbo_debug] && Thread.current[:ncbo_debug][:goo_process_query]
         goo_totals = Thread.current[:ncbo_debug][:goo_process_query]
@@ -601,10 +643,12 @@ module Goo
         headers["ncbo-time-goo-process-query"] = "%.3f"%goo_totals
       end
       # Count of store-bound SPARQL queries this request issued -- deterministic, unlike timing.
-      headers["ncbo-sparql-query-count"] = Thread.current[:goo_query_count].to_s
+      # Only the *exposure* is gated on QUERIES_DEBUG (this middleware): the count itself is
+      # collected unconditionally in Goo.tick_query_count, so it is available to logs and metrics
+      # in a normal deploy without publishing per-request fan-out to every API caller.
+      count = Goo.request_query_count
+      headers["ncbo-sparql-query-count"] = count.to_s unless count.nil?
       [status, headers, response]
-    ensure
-      Thread.current[:goo_query_count] = nil
     end
   end
 
