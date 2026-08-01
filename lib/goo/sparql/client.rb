@@ -7,6 +7,69 @@ module Goo
   module SPARQL
     class Client < RSPARQL::Client
 
+      # Goo owns the Redis read-through cache (vanilla sparql-client has none). The cache is
+      # inert until a redis_cache is set (Goo.use_cache / set_sparql_cache wires it).
+      attr_reader :cache
+
+      def initialize(url, **options, &block)
+        @cache = Goo::SPARQL::Cache.new(redis_cache: options[:redis_cache])
+        super(url, **options, &block)
+      end
+
+      def redis_cache=(redis_cache)
+        @cache.redis_cache = redis_cache
+      end
+
+      # Redis read-through cache. On a hit return the cached solutions; on a miss run the
+      # query (vanilla #query via super) and cache its return value. No options[:cache_key]
+      # side-channel -- we cache exactly what super returned (fixes the fork's bug). The cache
+      # is inert when redis_cache is nil, so this is a passthrough when caching is off.
+      def query(query, **options)
+        cached = @cache.get(query, options)
+        return cached unless cached.nil?
+
+        result = super
+        @cache.store(query, options, result)
+        result
+      end
+
+      # Invalidate the written graph's cached queries AFTER the write commits (super). The fork
+      # invalidated BEFORE the write; after-write closes that specific stale-repopulation window.
+      # It narrows -- not eliminates -- the classic cache-aside race: a slow reader holding a
+      # pre-write result can still store it after this invalidation (self-heals on next write).
+      #
+      # Parity with the fork (de-fork review D8): an update goo cannot invalidate for -- no
+      # options[:graph], including plain string updates -- is unsupported while caching is on;
+      # fail loudly rather than silently leave stale cache entries behind.
+      def update(query, **options)
+        if @cache.redis_cache
+          q_opts = query.respond_to?(:options) ? query.options : {}
+          if !q_opts[:bypass_cache] && q_opts[:graph].nil?
+            raise Exception, "Unsupported cacheable query"
+          end
+        end
+
+        result = super
+        if @cache.redis_cache && query.respond_to?(:options) && !query.options[:bypass_cache]
+          graph = query.options[:graph]
+          @cache.invalidate(graph.to_s) if graph
+        end
+        result
+      end
+
+      # Vanilla sparql-client posts protocol-1.1 queries as `application/sparql-query` with a
+      # raw body, which 4store rejects ("only implements application/x-www-form-urlencoded").
+      # goo configures its clients with a form-urlencoded Content-Type; honor it by posting the
+      # query/update as form data, matching the behavior the NCBO fork carried.
+      def make_post_request(query, headers = {})
+        request = super
+        protocol = (options[:protocol] || RSPARQL::Client::DEFAULT_PROTOCOL).to_s
+        if protocol == '1.1' && self.headers.merge(headers)['Content-Type'] == 'application/x-www-form-urlencoded'
+          request.set_form_data({ (@op || :query) => query.to_s })
+        end
+        request
+      end
+
       MIMETYPE_RAPPER_MAP = {
         "application/rdf+xml" => "rdfxml",
         "application/x-turtle" => "turtle",

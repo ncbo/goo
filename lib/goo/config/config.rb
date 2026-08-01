@@ -26,14 +26,15 @@ module Goo
     @settings.goo_redis_host      ||= ENV['REDIS_HOST'] || 'localhost'
     @settings.goo_redis_port      ||= ENV['REDIS_PORT'] || 6379
     @settings.bioportal_namespace ||= ENV['BIOPORTAL_NAMESPACE'] || 'http://data.bioontology.org/'
-    @settings.query_logging       ||= ENV['QUERIES_LOGGING'] || false
-    @settings.query_logging_file  ||= ENV['QUERIES_LOGGING_FILE'] || './sparql.log'
     @settings.queries_debug       ||= ENV['QUERIES_DEBUG'] || false
+    # SPARQL query caching: goo default OFF; env-driven opt-in so production can flip caching
+    # without a code change (de-fork review D5).
+    @settings.use_cache           ||= %w[1 true yes on].include?(ENV['OP_USE_CACHE'].to_s.strip.downcase)
     @settings.slice_loading_size  ||= ENV['GOO_SLICES']&.to_i || 500
     puts "(GOO) >> Using RDF store (#{@settings.goo_backend_name}) #{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}"
     puts "(GOO) >> Using term search server at #{@settings.search_server_url}"
     puts "(GOO) >> Using Redis instance at #{@settings.goo_redis_host}:#{@settings.goo_redis_port}"
-    puts "(GOO) >> Using Query logging: #{@settings.query_logging_file}" if @settings.query_logging
+    puts "(GOO) >> SPARQL query caching enabled (OP_USE_CACHE)" if @settings.use_cache
 
     connect_goo
   end
@@ -50,7 +51,6 @@ module Goo
                                 options: { rules: :NONE})
         conf.add_search_backend(:main, service: @settings.search_server_url)
         conf.add_redis_backend(host: @settings.goo_redis_host, port: @settings.goo_redis_port)
-        conf.add_query_logger(enabled: @settings.query_logging, file: @settings.query_logging_file)
 
         conf.add_namespace(:omv, RDF::Vocabulary.new("http://omv.org/ontology/"))
         conf.add_namespace(:skos, RDF::Vocabulary.new("http://www.w3.org/2004/02/skos/core#"))
@@ -63,7 +63,7 @@ module Goo
         conf.add_namespace(:tiger, RDF::Vocabulary.new("http://www.census.gov/tiger/2002/vocab#"))
         conf.add_namespace(:nemo, RDF::Vocabulary.new("http://purl.bioontology.org/NEMO/ontology/NEMO_annotation_properties.owl#"))
         conf.add_namespace(:bioportal, RDF::Vocabulary.new(@settings.bioportal_namespace))
-        conf.use_cache = false
+        conf.use_cache = @settings.use_cache
         conf.slice_loading_size = @settings.slice_loading_size
       end
     rescue StandardError => e

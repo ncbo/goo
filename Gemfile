@@ -25,6 +25,6 @@ group :profiling do
   gem "thin"
 end
 
-gem 'sparql-client', github: 'ncbo/sparql-client', branch: 'main'
+gem 'sparql-client', '3.2.2'
 gem "rdf-raptor", github: "ruby-rdf/rdf-raptor", ref: "6392ceabf71c3233b0f7f0172f662bd4a22cd534" # use version 3.3.0 when available
 gem 'net-ftp'
