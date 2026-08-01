@@ -17,8 +17,14 @@ module Goo
     # integer in a ZSET double and is fine enough that real queries never share a score, so
     # insertion order is preserved). That gives O(log N) time-window
     # queries (#recent) and a cheap ring-buffer trim -- no KEYS scans, no timestamp-from-key
-    # regex, no Marshal-of-JSON (the rough edges of the old fork logger). The goo:qlog:* keyspace
-    # is disjoint from the cache's sparql:* keys, so log volume never evicts cache memory.
+    # regex, no Marshal-of-JSON (the rough edges of the old fork logger).
+    #
+    # The goo:qlog:* keyspace is disjoint from the cache's sparql:*, which prevents key
+    # COLLISIONS but not cross-EVICTION: maxmemory/allkeys-lru is per-instance and ignores both
+    # key prefixes and db numbers, so on a shared Redis log volume evicts cache entries and vice
+    # versa. Hence Goo.add_log_redis_backend (de-fork review D6a) -- point the logger at its own
+    # instance before enabling logging anywhere the cache is load-bearing. Sharing the cache
+    # Redis is the fallback, and is only safe while logging is off.
     class QueryLogger
       KEY = 'goo:qlog'.freeze
       INDEX = "#{KEY}:index".freeze
@@ -56,8 +62,9 @@ module Goo
                user: resolve_user(user),
                rows: (result.respond_to?(:size) ? result.size : nil),
                bytes: (bytes.respond_to?(:call) ? bytes.call : bytes),
-               execution_time: elapsed.round(4))
-        record_cache_stat(cached) if count_cache
+               execution_time: elapsed.round(4),
+               # folded into #record's pipeline rather than a second round-trip
+               cache_stat: (count_cache ? cached : nil))
         result
       end
 
@@ -144,7 +151,15 @@ module Goo
         user || Thread.current[:remote_user]&.id&.to_s
       end
 
-      def record(**entry)
+      # One logged query = ONE Redis round-trip. Every write for the entry (the JSON blob, the
+      # index score, the per-user tally and its rolling TTL, the cache hit/miss counter) plus the
+      # ZCARD that drives the ring-buffer trim goes out in a single pipeline. Unbatched this was
+      # ~6 sequential round-trips per query, which is not affordable on a path that already runs
+      # thousands of Redis ops per request (de-fork review section 2A).
+      #
+      # @param cache_stat [Boolean, nil] true/false to tally a cache hit/miss, nil to tally
+      #   neither (writes, and reads issued while caching is off -- see #around's count_cache).
+      def record(cache_stat: nil, **entry)
         id = SecureRandom.uuid
         now = Time.now
         entry = entry.merge(id: id, timestamp: now.iso8601)
@@ -154,39 +169,39 @@ module Goo
                                   entry[:rows], entry[:bytes], entry[:query]))
         return unless @redis
 
+        user = entry[:user]
         with_redis do
-          @redis.set(entry_key(id), entry.to_json, ex: @ttl)
-          @redis.zadd(INDEX, (now.to_f * 1_000_000).to_i, id)
-          bump_user_count(entry[:user])
-          trim
+          results = @redis.pipelined do |p|
+            p.set(entry_key(id), entry.to_json, ex: @ttl)
+            p.zadd(INDEX, (now.to_f * 1_000_000).to_i, id)
+            # Per-user query counter (backs #users_query_count). A single ZSET keyed by user id,
+            # carrying a rolling 30-day TTL refreshed on each query (the fork TTL'd each user key
+            # individually -- one set is simpler and close enough for an active-user metric).
+            unless user.nil?
+              p.zincrby(USERS, 1, user.to_s)
+              p.expire(USERS, USER_EXPIRY)
+            end
+            p.incr(cache_stat ? CACHE_HITS : CACHE_MISSES) unless cache_stat.nil?
+            p.zcard(INDEX) # last => drives trim below without a second round-trip
+          end
+          trim(results.last.to_i)
         end
       end
 
-      # Per-user query counter (backs #users_query_count). A single ZSET keyed by user id; the
-      # whole set carries a rolling 30-day TTL refreshed on each query (the fork TTL'd each user
-      # key individually -- a single set is simpler and close enough for an active-user metric).
-      def bump_user_count(user)
-        return if user.nil?
-
-        @redis.zincrby(USERS, 1, user.to_s)
-        @redis.expire(USERS, USER_EXPIRY)
-      end
-
-      def record_cache_stat(hit)
-        return unless @redis
-
-        with_redis { @redis.incr(hit ? CACHE_HITS : CACHE_MISSES) }
-      end
-
-      def trim
-        excess = @redis.zcard(INDEX) - @max_logs
+      # Ring-buffer trim, given the index cardinality already read by #record's pipeline. Costs
+      # nothing on the common path (under @max_logs); when over, one ZRANGE plus one pipelined
+      # ZREM+DEL.
+      def trim(card)
+        excess = card - @max_logs
         return if excess <= 0
 
         old = @redis.zrange(INDEX, 0, excess - 1)
         return if old.empty?
 
-        @redis.zrem(INDEX, old)
-        @redis.del(*old.map { |i| entry_key(i) })
+        @redis.pipelined do |p|
+          p.zrem(INDEX, old)
+          p.del(*old.map { |i| entry_key(i) })
+        end
       end
 
       # `ids` arrive already newest-first (callers use zrev*); preserve that order.
