@@ -34,4 +34,11 @@ Goo.config do |config|
   # entries (de-fork review D6a). Defaults to the cache Redis above when unset.
   # config.query_logging_redis_host = 'localhost'
   # config.query_logging_redis_port = 6380
+  #
+  # Ring-buffer depth and per-entry TTL (env: OP_QUERIES_LOGGING_MAX_LOGS / OP_QUERIES_LOGGING_TTL).
+  # max_logs must exceed the query count of the request you are investigating: a single class-tree
+  # request issues ~2000 reads, so a smaller buffer trims away its own entries before you can read
+  # them. 10k entries is roughly 15-20 MB of JSON-with-SPARQL-text.
+  # config.query_logging_max_logs = 10_000
+  # config.query_logging_ttl      = 86_400
 end

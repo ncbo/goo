@@ -94,6 +94,26 @@ class TestQueryLogger < Goo::TestCase
     assert_equal "q19", logger.all(limit: 100).first["query"]
   end
 
+  # The buffer depth has to be reachable from configuration: the default must hold more than the
+  # ~2000 reads of one class-tree request (review §2A), and a deployment must be able to raise or
+  # lower it, since a request bigger than the buffer trims away the evidence logging was enabled
+  # to collect.
+  def test_max_logs_default_holds_a_whole_tree_request_and_is_configurable
+    assert_operator Goo::SPARQL::QueryLogger.new.instance_variable_get(:@max_logs), :>, 2000,
+                    'default ring buffer must outlast a single class-tree request'
+
+    prev = Goo.query_logging?
+    Goo.enable_query_logging(enabled: true, max_logs: 7, ttl: 60)
+    logger = Goo.query_logger
+    assert_equal 7, logger.instance_variable_get(:@max_logs)
+    assert_equal 60, logger.instance_variable_get(:@ttl)
+
+    9.times { |i| logger.around("cfg#{i}", cached: false) { [] } }
+    assert_equal 7, logger.all(limit: 100).length, 'the configured depth should be enforced'
+  ensure
+    Goo.enable_query_logging(enabled: prev, max_logs: 10_000, ttl: 86_400)
+  end
+
   # --- keyspace isolation from the cache -------------------------------------------------
 
   def test_only_touches_qlog_keyspace

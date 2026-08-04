@@ -36,6 +36,11 @@ module Goo
     # instance lets log volume evict cache entries. Falls back to the cache Redis when unset.
     @settings.query_logging_redis_host ||= ENV['OP_QUERIES_LOGGING_REDIS_HOST'] || nil
     @settings.query_logging_redis_port ||= ENV['OP_QUERIES_LOGGING_REDIS_PORT'] || nil
+    # Ring-buffer depth / entry TTL. Raise max_logs above the query count of the request under
+    # investigation: one class-tree request is ~2000 reads, so too small a buffer means the
+    # request trims away the evidence you enabled logging to collect.
+    @settings.query_logging_max_logs ||= (ENV['OP_QUERIES_LOGGING_MAX_LOGS'] || 10_000).to_i
+    @settings.query_logging_ttl        ||= (ENV['OP_QUERIES_LOGGING_TTL'] || 86_400).to_i
     @settings.queries_debug       ||= ENV['QUERIES_DEBUG'] || false
     # SPARQL query caching: goo default OFF; env-driven opt-in so production can flip caching
     # without a code change (de-fork review D5).
@@ -72,7 +77,10 @@ module Goo
           conf.add_log_redis_backend(host: @settings.query_logging_redis_host,
                                      port: @settings.query_logging_redis_port || 6379)
         end
-        conf.enable_query_logging(enabled: @settings.query_logging, file: @settings.query_logging_file)
+        conf.enable_query_logging(enabled: @settings.query_logging,
+                                  file: @settings.query_logging_file,
+                                  max_logs: @settings.query_logging_max_logs,
+                                  ttl: @settings.query_logging_ttl)
 
         conf.add_namespace(:omv, RDF::Vocabulary.new("http://omv.org/ontology/"))
         conf.add_namespace(:skos, RDF::Vocabulary.new("http://www.w3.org/2004/02/skos/core#"))
