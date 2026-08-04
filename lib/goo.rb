@@ -56,6 +56,16 @@ module Goo
   @@use_cache = false
   @@query_logging = false
   @@query_logging_file = nil
+  # Ring-buffer depth and per-entry TTL for the SPARQL query log. The default has to exceed the
+  # query count of the request you are trying to explain, or that request evicts its own evidence:
+  # §2A measured a single class-tree request at ~2000 store+cache reads, so 1000 entries could not
+  # hold one of them, and attributing that fan-out (checklist #16/#17) is the log's main job.
+  # 10k entries of JSON-with-SPARQL-text is roughly 15-20 MB on the log's own Redis instance (D6a),
+  # bounded further by the TTL. Both tunable per deployment (OP_QUERIES_LOGGING_MAX_LOGS /
+  # OP_QUERIES_LOGGING_TTL) since they only cost anything while logging is on, which is off by
+  # default.
+  @@query_logging_max_logs = 10_000
+  @@query_logging_ttl = 86_400
   @@query_count_total = nil # process-wide store-bound query tally; nil = disabled (test reporting)
   @@cache_hit_total = nil   # process-wide cache-hit tally; nil = disabled (test reporting)
   @@slice_loading_size = 500
@@ -332,9 +342,11 @@ module Goo
 
   # Turn SPARQL query logging on/off and (re)attach loggers to the registered backends.
   # Default off; opt in via this call or the OP_QUERIES_LOGGING env var (see config.rb).
-  def self.enable_query_logging(enabled: false, file: nil)
+  def self.enable_query_logging(enabled: false, file: nil, max_logs: nil, ttl: nil)
     @@query_logging = enabled
     @@query_logging_file = file
+    @@query_logging_max_logs = max_logs unless max_logs.nil?
+    @@query_logging_ttl = ttl unless ttl.nil?
     set_query_logging
   end
 
@@ -343,7 +355,10 @@ module Goo
 
     @@sparql_backends.each_value do |epr|
       logger = if @@query_logging
-                 Goo::SPARQL::QueryLogger.new(redis: log_redis_client, file: @@query_logging_file)
+                 Goo::SPARQL::QueryLogger.new(redis: log_redis_client,
+                                              file: @@query_logging_file,
+                                              max_logs: @@query_logging_max_logs,
+                                              ttl: @@query_logging_ttl)
                else
                  Goo::SPARQL::QueryLogger.new # inert
                end

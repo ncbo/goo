@@ -36,7 +36,12 @@ module Goo
 
       attr_accessor :redis, :file_logger, :enabled
 
-      def initialize(redis: nil, file: nil, max_logs: 1000, ttl: 86_400)
+      # @param max_logs [Integer] ring-buffer depth. Must exceed the query count of whatever
+      #   request you are trying to explain, or that request trims away its own entries: one
+      #   class-tree request is ~2000 reads (review §2A), which the original 1000 could not hold.
+      #   Tunable via Goo.enable_query_logging / OP_QUERIES_LOGGING_MAX_LOGS.
+      # @param ttl [Integer] per-entry expiry in seconds; the index is bounded by max_logs.
+      def initialize(redis: nil, file: nil, max_logs: 10_000, ttl: 86_400)
         @redis = redis
         @file_logger = file ? ::Logger.new(file) : nil
         @max_logs = max_logs
