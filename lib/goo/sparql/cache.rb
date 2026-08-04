@@ -149,15 +149,39 @@ module Goo
           # Best-effort: a failed invalidation must not fail the write it follows (the write is
           # already committed; a missed invalidation self-heals on the next write). When the
           # breaker is open, skip fast instead of retrying against a known-dead Redis.
+          #
+          # The skip must still be reported. invalidate_with_backoff swallows its own failures
+          # (logging them via log_invalidation_failure), so the ONLY way the block does not run to
+          # completion is an open breaker -- and that path returns the fallback silently. Left
+          # unreported, the one case where invalidations are being dropped wholesale would be the
+          # quiet one, and graphs written during the outage keep serving stale entries after Redis
+          # recovers, until their next successful write. Use a sentinel rather than asking
+          # Stoplight for its state, so this stays correct if the fallback path ever widens.
+          # The sentinel records that the block was ENTERED, not that it succeeded: an exhausted
+          # invalidation re-raises (so the breaker counts it) and has already reported itself via
+          # log_invalidation_failure. Only a block that never ran at all is a breaker skip.
+          attempted = false
           Goo::SPARQL::Resilience.protect_best_effort(
             Goo::SPARQL::Resilience::REDIS_CIRCUIT, Goo::SPARQL::Resilience::REDIS_ERRORS
-          ) { invalidate_with_backoff(key) }
+          ) do
+            attempted = true
+            invalidate_with_backoff(key)
+          end
+          log_invalidation_skipped(key) unless attempted
         end
       end
 
-      # Delete a graph-set key with bounded backoff+jitter retry on a Redis blip; on final
-      # failure (or any non-retryable error) log + emit the metric hook and swallow, so the write
-      # never fails over cache cleanup (review D4 -- the stale entry self-heals on the next write).
+      # Delete a graph-set key with bounded backoff+jitter retry on a Redis blip (review D4 -- a
+      # missed invalidation self-erases on the next write, so this must never fail the write it
+      # follows).
+      #
+      # On final failure of a TRACKED (infra) error, log the metric hook and then RE-RAISE, so the
+      # enclosing breaker counts it. Swallowing it here instead meant Stoplight saw every
+      # invalidation as a success and the Redis circuit could never open from this path: during a
+      # write-heavy outage with no concurrent reads to trip it, every single write would keep
+      # paying the full retry ladder against a Redis already known to be dead. The caller's
+      # protect_best_effort turns the re-raised error back into a no-op, so the write is still
+      # unaffected. Non-tracked errors (a bug in here) stay swallowed and must not trip anything.
       def invalidate_with_backoff(key)
         attempts = 0
         begin
@@ -169,6 +193,7 @@ module Goo
             retry
           end
           log_invalidation_failure(key, e, attempts)
+          raise
         rescue StandardError => e
           log_invalidation_failure(key, e, attempts)
         end
@@ -182,6 +207,17 @@ module Goo
       def log_invalidation_failure(key, error, attempts)
         warn "warning: cache invalidation failed for #{key} after #{attempts} attempt(s): " \
              "#{error.class}: #{error.message}"
+        Goo::SPARQL::Resilience.on_invalidation_failure&.call(key, error)
+      end
+
+      # An invalidation dropped because the Redis breaker is open. Reported through the same hook
+      # as a failed invalidation (the consequence is identical: a graph whose cached entries are
+      # now stale) carrying a CircuitOpenError so a metrics consumer can tell the two apart.
+      def log_invalidation_skipped(key)
+        error = Goo::SPARQL::Resilience::CircuitOpenError.new(
+          "circuit '#{Goo::SPARQL::Resilience::REDIS_CIRCUIT}' is open"
+        )
+        warn "warning: cache invalidation skipped for #{key}: #{error.message}"
         Goo::SPARQL::Resilience.on_invalidation_failure&.call(key, error)
       end
     end

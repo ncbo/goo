@@ -130,6 +130,38 @@ class TestResilience < Goo::TestCase
     refute_empty failed, 'the invalidation-failure metric hook should fire'
   end
 
+  # Once the breaker is OPEN, protect_best_effort short-circuits before the invalidation runs, so
+  # the drop is invisible unless it is reported explicitly. That silence is the dangerous case:
+  # graphs written during the outage keep serving stale cached entries after Redis recovers, until
+  # their next successful write.
+  def test_invalidations_dropped_by_an_open_breaker_are_still_reported
+    reported = []
+    R.on_invalidation_failure = ->(key, err) { reported << [key, err.class] }
+    cache = Goo::SPARQL::Cache.new(redis_cache: BoomRedis.new)
+    graph = 'http://goo.org/default/ResilienceTest'
+
+    # Trip the shared REDIS_CIRCUIT (threshold 2) through this same path. This only works because
+    # invalidate_with_backoff re-raises a tracked error after its final attempt; while it
+    # swallowed them, the breaker never saw a failure here and could not open.
+    assert_output(nil, /cache invalidation failed/) { 2.times { cache.invalidate(graph) } }
+    assert_equal 2, reported.size, 'each exhausted invalidation should report once'
+    reported.clear
+
+    # Any Redis call now would be a bug: the breaker is open, so the skip must be decided
+    # without touching the dependency.
+    probe = Class.new(BoomRedis) do
+      attr_reader :calls
+      def initialize = @calls = 0
+      def method_missing(name, *args, &block) = (@calls += 1; super)
+    end.new
+    cache.redis_cache = probe
+    assert_output(nil, /cache invalidation skipped/) { cache.invalidate(graph) }
+    assert_equal 0, probe.calls, 'an open breaker must skip Redis entirely'
+
+    assert_equal [["sparql:graph:#{graph}", R::CircuitOpenError]], reported,
+                 'an invalidation dropped by an open breaker must reach the metric hook'
+  end
+
   # --- query logger under a Redis outage ---------------------------------------------------
   # Logging is best-effort by definition, but it must also FAIL FAST: without a breaker, a Redis
   # outage costs every query a connect timeout inside the logger even though the cache breaker is
