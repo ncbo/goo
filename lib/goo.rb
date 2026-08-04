@@ -146,6 +146,10 @@ module Goo
     # order (de-fork review D5): construction injects @@redis_client above, so without this a
     # host that configures redis FIRST would get caching silently ON while use_cache says off.
     set_sparql_cache
+    # Same reasoning for the query log: a host that enables logging BEFORE registering its
+    # backends would otherwise leave these clients holding the inert logger built in
+    # Client#initialize, and logging would be silently off despite the flag being on.
+    set_query_logging
     @@sparql_backends.freeze
   end
 

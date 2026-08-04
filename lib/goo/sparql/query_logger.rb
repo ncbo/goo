@@ -2,6 +2,7 @@ require 'json'
 require 'benchmark'
 require 'securerandom'
 require 'logger'
+require 'time' # Time#iso8601, used by #record; do not rely on a dependency loading it for us
 
 module Goo
   module SPARQL
