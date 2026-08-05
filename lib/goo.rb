@@ -136,19 +136,19 @@ module Goo
     @@sparql_backends[name][:query] = Goo::SPARQL::Client.new(opts[:query],
                                                               protocol: "1.1",
                                                               headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                              read_timeout: 10000,
+                                                              read_timeout: sparql_read_timeout,
                                                               validate: false,
                                                               redis_cache: @@redis_client)
     @@sparql_backends[name][:update] = Goo::SPARQL::Client.new(opts[:update],
                                                                protocol: "1.1",
                                                                headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                               read_timeout: 10000,
+                                                               read_timeout: sparql_read_timeout,
                                                                validate: false,
                                                                redis_cache: @@redis_client)
     @@sparql_backends[name][:data] = Goo::SPARQL::Client.new(opts[:data],
                                                              protocol: "1.1",
                                                              headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                             read_timeout: 10000,
+                                                             read_timeout: sparql_read_timeout,
                                                              validate: false,
                                                              redis_cache: @@redis_client)
     @@sparql_backends[name][:backend_name] = opts[:backend_name]
@@ -229,7 +229,7 @@ module Goo
     opts = opts.first
     host = opts.delete :host
     port = opts.delete(:port) || 6379
-    @@redis_client = Redis.new host: host, port: port, timeout: 300
+    @@redis_client = Redis.new host: host, port: port, timeout: redis_timeout
     set_sparql_cache
     set_query_logging # the log handle may be defaulting to this client
   end
@@ -245,7 +245,9 @@ module Goo
     opts = opts.first
     host = opts.delete :host
     port = opts.delete(:port) || 6379
-    @@log_redis_client = Redis.new host: host, port: port, timeout: 300
+    # Same tightened timeout as the cache Redis (§7.3): a breaker cannot trip faster than the
+    # call's own timeout, so a slow log Redis must fail in seconds, not minutes.
+    @@log_redis_client = Redis.new host: host, port: port, timeout: redis_timeout
     set_query_logging
   end
 
@@ -366,6 +368,19 @@ module Goo
       epr[:update].query_logger = logger
       epr[:data].query_logger = logger
     end
+  end
+
+  # Per-op SPARQL/Redis timeouts (de-fork review §7.3). Both env-tunable so a deployment running
+  # the circuit breaker can set them tight enough for a failure to register fast. The Redis
+  # default drops from a legacy 300s (a stalled Redis could tie up a worker for 5 minutes) to 5s;
+  # the SPARQL default is unchanged (10s) since some tree/bulk queries are legitimately slow --
+  # tighten per deployment via GOO_SPARQL_READ_TIMEOUT.
+  def self.sparql_read_timeout
+    (ENV['GOO_SPARQL_READ_TIMEOUT'] || 10_000).to_i
+  end
+
+  def self.redis_timeout
+    (ENV['GOO_REDIS_TIMEOUT'] || 5).to_i
   end
 
   def self.set_sparql_cache

@@ -37,6 +37,56 @@ module Goo
         keys = query_cache_key(query, options)
         return nil if keys.nil?
 
+        # Cache-dependent read: on a Redis outage fail fast via the breaker (review D1) rather
+        # than fall through and amplify one request into a store-query storm. When the breaker is
+        # off this is a plain pass-through and raw Redis errors propagate as before.
+        Goo::SPARQL::Resilience.protect_read(
+          Goo::SPARQL::Resilience::REDIS_CIRCUIT, Goo::SPARQL::Resilience::REDIS_ERRORS
+        ) { redis_get(keys, options) }
+      end
+
+      # Write `value` to the cache under this query's graph-set keys.
+      #
+      # Scope matches the fork (de-fork review D3/H-1): only JSON SELECT/ASK results -- an
+      # RDF::Query::Solutions or the ASK boolean -- are cached. The fork wrote the cache solely
+      # from the RESULT_JSON branch of parse_response, so CONSTRUCT/DESCRIBE graph results were
+      # never cached; preserve that scope rather than widen it.
+      def store(query, options, value)
+        return unless cacheable_result?(value)
+        return unless cacheable?(query, options)
+
+        keys = query_cache_key(query, options)
+        return if keys.nil?
+
+        # Best-effort (review D1/M-5): a failed cache write must never fail the already-successful
+        # query. On an open breaker or Redis error, skip; the result is simply not cached.
+        Goo::SPARQL::Resilience.protect_best_effort(
+          Goo::SPARQL::Resilience::REDIS_CIRCUIT, Goo::SPARQL::Resilience::REDIS_ERRORS
+        ) { cache_query_response(keys, value) }
+      end
+
+      def invalidate(graphs)
+        cache_invalidate_graph(graphs)
+      end
+
+      def self.generate_cache_key(string, from)
+        from = from.map { |x| x.to_s }.uniq.sort
+        sorted_graphs = from.join ":"
+        digest = Digest::MD5.hexdigest(string)
+        from = from.map { |x| "sparql:graph:#{x}" }
+        { graphs: from, query: "sparql:#{sorted_graphs}:#{digest}" }
+      end
+
+      # Retry tuning for a transient Redis blip during invalidation (review D4): capped
+      # exponential backoff with full jitter -- sub-second worst case, desynchronized across
+      # threads -- replacing the old fixed sleep(5)x3 (a 15s synchronized stall).
+      INVALIDATE_MAX_RETRIES = 3
+      INVALIDATE_BACKOFF_BASE = 0.05 # seconds
+      INVALIDATE_BACKOFF_CAP = 1.0   # seconds
+
+      private
+
+      def redis_get(keys, options)
         if options[:reload_cache]
           @redis_cache.del(keys[:query])
           return nil
@@ -54,36 +104,6 @@ module Goo
 
         Marshal.load(data)
       end
-
-      # Write `value` to the cache under this query's graph-set keys.
-      #
-      # Scope matches the fork (de-fork review D3/H-1): only JSON SELECT/ASK results -- an
-      # RDF::Query::Solutions or the ASK boolean -- are cached. The fork wrote the cache solely
-      # from the RESULT_JSON branch of parse_response, so CONSTRUCT/DESCRIBE graph results were
-      # never cached; preserve that scope rather than widen it.
-      def store(query, options, value)
-        return unless cacheable_result?(value)
-        return unless cacheable?(query, options)
-
-        keys = query_cache_key(query, options)
-        return if keys.nil?
-
-        cache_query_response(keys, value)
-      end
-
-      def invalidate(graphs)
-        cache_invalidate_graph(graphs)
-      end
-
-      def self.generate_cache_key(string, from)
-        from = from.map { |x| x.to_s }.uniq.sort
-        sorted_graphs = from.join ":"
-        digest = Digest::MD5.hexdigest(string)
-        from = from.map { |x| "sparql:graph:#{x}" }
-        { graphs: from, query: "sparql:#{sorted_graphs}:#{digest}" }
-      end
-
-      private
 
       def cacheable?(query, options)
         return false if @redis_cache.nil?
@@ -124,28 +144,81 @@ module Goo
 
         graphs = [graphs] unless graphs.instance_of?(Array)
         graphs.each do |graph|
-          attempts = 0
-          begin
-            graph = graph.to_s
-            graph = "sparql:graph:#{graph}" unless graph.start_with?("sparql:graph:")
-            if @redis_cache.exists?(graph)
-              begin
-                @redis_cache.del(graph)
-              rescue StandardError => e
-                # Parity with the fork: a failed DEL is logged and skipped (the stale entry
-                # self-heals on the next successful invalidation); only exists?/connection
-                # errors reach the outer retry. The original port dropped this log line.
-                warn "warning: error in cache invalidation `#{e}`"
-              end
-            end
-          rescue StandardError
-            if attempts < 3
-              attempts += 1
-              sleep(5)
-              retry
-            end
+          key = graph.to_s
+          key = "sparql:graph:#{key}" unless key.start_with?("sparql:graph:")
+          # Best-effort: a failed invalidation must not fail the write it follows (the write is
+          # already committed; a missed invalidation self-heals on the next write). When the
+          # breaker is open, skip fast instead of retrying against a known-dead Redis.
+          #
+          # The skip must still be reported. invalidate_with_backoff swallows its own failures
+          # (logging them via log_invalidation_failure), so the ONLY way the block does not run to
+          # completion is an open breaker -- and that path returns the fallback silently. Left
+          # unreported, the one case where invalidations are being dropped wholesale would be the
+          # quiet one, and graphs written during the outage keep serving stale entries after Redis
+          # recovers, until their next successful write. Use a sentinel rather than asking
+          # Stoplight for its state, so this stays correct if the fallback path ever widens.
+          # The sentinel records that the block was ENTERED, not that it succeeded: an exhausted
+          # invalidation re-raises (so the breaker counts it) and has already reported itself via
+          # log_invalidation_failure. Only a block that never ran at all is a breaker skip.
+          attempted = false
+          Goo::SPARQL::Resilience.protect_best_effort(
+            Goo::SPARQL::Resilience::REDIS_CIRCUIT, Goo::SPARQL::Resilience::REDIS_ERRORS
+          ) do
+            attempted = true
+            invalidate_with_backoff(key)
           end
+          log_invalidation_skipped(key) unless attempted
         end
+      end
+
+      # Delete a graph-set key with bounded backoff+jitter retry on a Redis blip (review D4 -- a
+      # missed invalidation self-erases on the next write, so this must never fail the write it
+      # follows).
+      #
+      # On final failure of a TRACKED (infra) error, log the metric hook and then RE-RAISE, so the
+      # enclosing breaker counts it. Swallowing it here instead meant Stoplight saw every
+      # invalidation as a success and the Redis circuit could never open from this path: during a
+      # write-heavy outage with no concurrent reads to trip it, every single write would keep
+      # paying the full retry ladder against a Redis already known to be dead. The caller's
+      # protect_best_effort turns the re-raised error back into a no-op, so the write is still
+      # unaffected. Non-tracked errors (a bug in here) stay swallowed and must not trip anything.
+      def invalidate_with_backoff(key)
+        attempts = 0
+        begin
+          @redis_cache.del(key) if @redis_cache.exists?(key)
+        rescue *Goo::SPARQL::Resilience::REDIS_ERRORS => e
+          attempts += 1
+          if attempts <= INVALIDATE_MAX_RETRIES
+            sleep(invalidate_backoff(attempts))
+            retry
+          end
+          log_invalidation_failure(key, e, attempts)
+          raise
+        rescue StandardError => e
+          log_invalidation_failure(key, e, attempts)
+        end
+      end
+
+      def invalidate_backoff(attempt)
+        # full jitter: rand(0, min(cap, base * 2**attempt))
+        rand * [INVALIDATE_BACKOFF_CAP, INVALIDATE_BACKOFF_BASE * (2**attempt)].min
+      end
+
+      def log_invalidation_failure(key, error, attempts)
+        warn "warning: cache invalidation failed for #{key} after #{attempts} attempt(s): " \
+             "#{error.class}: #{error.message}"
+        Goo::SPARQL::Resilience.on_invalidation_failure&.call(key, error)
+      end
+
+      # An invalidation dropped because the Redis breaker is open. Reported through the same hook
+      # as a failed invalidation (the consequence is identical: a graph whose cached entries are
+      # now stale) carrying a CircuitOpenError so a metrics consumer can tell the two apart.
+      def log_invalidation_skipped(key)
+        error = Goo::SPARQL::Resilience::CircuitOpenError.new(
+          "circuit '#{Goo::SPARQL::Resilience::REDIS_CIRCUIT}' is open"
+        )
+        warn "warning: cache invalidation skipped for #{key}: #{error.message}"
+        Goo::SPARQL::Resilience.on_invalidation_failure&.call(key, error)
       end
     end
   end

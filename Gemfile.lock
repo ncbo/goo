@@ -31,6 +31,7 @@ PATH
       rest-client
       rsolr
       sparql-client (= 3.2.2)
+      stoplight (~> 5.0)
       uuid
 
 GEM
@@ -221,6 +222,9 @@ GEM
     sparql-client (3.2.2)
       net-http-persistent (~> 4.0, >= 4.0.2)
       rdf (~> 3.2, >= 3.2.11)
+    stoplight (5.8.2)
+      concurrent-ruby
+      zeitwerk
     systemu (2.6.5)
     thin (2.0.1)
       daemons (~> 1.0, >= 1.0.9)
@@ -239,6 +243,7 @@ GEM
     uri (1.1.1)
     uuid (2.3.9)
       macaddr (~> 1.0)
+    zeitwerk (2.8.2)
 
 PLATFORMS
   aarch64-linux-gnu

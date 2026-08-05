@@ -218,8 +218,19 @@ module Goo
       end
 
       # Logging must never break a query: a redis hiccup degrades to file-only / no-op.
+      #
+      # Routed through the log Redis breaker as a best-effort op (review D1). Without it, a Redis
+      # outage costs every query a full connect/read timeout inside the logger even though the
+      # cache breaker is already open and shedding -- logging would become the slow path it was
+      # meant to observe. Its own circuit, not the cache's: D6a puts the log on a separate
+      # instance, so the two must fail independently.
+      #
+      # The outer rescue still catches anything protect_best_effort lets through (non-infra
+      # errors, e.g. a JSON or command problem) so a logging bug can never fail a query either.
       def with_redis
-        yield
+        Goo::SPARQL::Resilience.protect_best_effort(
+          Goo::SPARQL::Resilience::LOG_REDIS_CIRCUIT, Goo::SPARQL::Resilience::REDIS_ERRORS
+        ) { yield }
       rescue StandardError => e
         @file_logger&.warn("query log redis write failed: #{e.class}: #{e.message}")
       end
