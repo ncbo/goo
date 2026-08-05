@@ -10,11 +10,10 @@ class TestCache < Goo::TestCase
   def before_all
     Goo.use_cache=false
     GooTestData.create_test_case_data
-    redis = Goo.redis_client
-    if redis.dbsize > 100
-      raise "This redis needs to point to testing server"
-    end
-    redis.flushdb
+    # Safe to flush: targets are host-checked and pre-flight-verified at suite startup
+    # (test_case.rb). The old dbsize>100 guard false-tripped here mid-run once earlier suites
+    # had legitimately filled the shared redis.
+    Goo.redis_client.flushdb
   end
 
   def after_all
