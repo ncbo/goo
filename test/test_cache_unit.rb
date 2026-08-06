@@ -128,13 +128,13 @@ class TestCacheUnit < Goo::TestCase
   end
 
   def test_invalidation_del_failure_warns_and_moves_on
-    # Fork parity: a failed DEL logs a warning and is skipped -- it must neither raise nor
-    # enter the sleep(5) outer retry loop (that path is for connection-level errors only).
+    # A failed DEL logs + is swallowed (review D4) -- invalidation must never fail the write.
+    # A non-connection error (Redis::BaseError) is not retried, so it can't hit any backoff sleep.
     @cache.store(QUERY, { graphs: [GRAPH_A] }, solutions)
     @redis.define_singleton_method(:del) { |*_| raise Redis::BaseError, 'boom' }
     started = Time.now
-    assert_output(nil, /error in cache invalidation/) { @cache.invalidate(GRAPH_A) }
-    assert_operator Time.now - started, :<, 2, 'a DEL failure must not hit the sleep(5) retries'
+    assert_output(nil, /cache invalidation failed/) { @cache.invalidate(GRAPH_A) }
+    assert_operator Time.now - started, :<, 2, 'a non-retryable DEL failure must not sleep/back off'
   ensure
     @redis.singleton_class.send(:remove_method, :del)
   end

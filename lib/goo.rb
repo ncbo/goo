@@ -12,6 +12,7 @@ require 'rsolr'
 require 'rest_client'
 require 'redis'
 require 'uuid'
+require 'request_store'
 
 require_relative "goo/config/config"
 require_relative "goo/sparql/sparql"
@@ -47,11 +48,26 @@ module Goo
   @@default_namespace = nil
   @@id_prefix = nil
   @@redis_client = nil
+  @@log_redis_client = nil # query-log Redis (D6a); nil => fall back to @@redis_client
   @@namespaces = {}
   @@pluralize_models = false
   @@uuid = UUID.new
   @@debug_enabled = false
   @@use_cache = false
+  @@query_logging = false
+  @@query_logging_file = nil
+  # Ring-buffer depth and per-entry TTL for the SPARQL query log. The default has to exceed the
+  # query count of the request you are trying to explain, or that request evicts its own evidence:
+  # §2A measured a single class-tree request at ~2000 store+cache reads, so 1000 entries could not
+  # hold one of them, and attributing that fan-out (checklist #16/#17) is the log's main job.
+  # 10k entries of JSON-with-SPARQL-text is roughly 15-20 MB on the log's own Redis instance (D6a),
+  # bounded further by the TTL. Both tunable per deployment (OP_QUERIES_LOGGING_MAX_LOGS /
+  # OP_QUERIES_LOGGING_TTL) since they only cost anything while logging is on, which is off by
+  # default.
+  @@query_logging_max_logs = 10_000
+  @@query_logging_ttl = 86_400
+  @@query_count_total = nil # process-wide store-bound query tally; nil = disabled (test reporting)
+  @@cache_hit_total = nil   # process-wide cache-hit tally; nil = disabled (test reporting)
   @@slice_loading_size = 500
   @@force_rebuild_search_schema = false
 
@@ -120,19 +136,19 @@ module Goo
     @@sparql_backends[name][:query] = Goo::SPARQL::Client.new(opts[:query],
                                                               protocol: "1.1",
                                                               headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                              read_timeout: 10000,
+                                                              read_timeout: sparql_read_timeout,
                                                               validate: false,
                                                               redis_cache: @@redis_client)
     @@sparql_backends[name][:update] = Goo::SPARQL::Client.new(opts[:update],
                                                                protocol: "1.1",
                                                                headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                               read_timeout: 10000,
+                                                               read_timeout: sparql_read_timeout,
                                                                validate: false,
                                                                redis_cache: @@redis_client)
     @@sparql_backends[name][:data] = Goo::SPARQL::Client.new(opts[:data],
                                                              protocol: "1.1",
                                                              headers: { "Content-Type" => "application/x-www-form-urlencoded", "Accept" => "application/sparql-results+json"},
-                                                             read_timeout: 10000,
+                                                             read_timeout: sparql_read_timeout,
                                                              validate: false,
                                                              redis_cache: @@redis_client)
     @@sparql_backends[name][:backend_name] = opts[:backend_name]
@@ -140,6 +156,10 @@ module Goo
     # order (de-fork review D5): construction injects @@redis_client above, so without this a
     # host that configures redis FIRST would get caching silently ON while use_cache says off.
     set_sparql_cache
+    # Same reasoning for the query log: a host that enables logging BEFORE registering its
+    # backends would otherwise leave these clients holding the inert logger built in
+    # Client#initialize, and logging would be silently off despite the flag being on.
+    set_query_logging
     @@sparql_backends.freeze
   end
 
@@ -209,8 +229,158 @@ module Goo
     opts = opts.first
     host = opts.delete :host
     port = opts.delete(:port) || 6379
-    @@redis_client = Redis.new host: host, port: port, timeout: 300
+    @@redis_client = Redis.new host: host, port: port, timeout: redis_timeout
     set_sparql_cache
+    set_query_logging # the log handle may be defaulting to this client
+  end
+
+  # Redis instance for the SPARQL query log, kept separate from the cache (de-fork review D6a).
+  # maxmemory / allkeys-lru is per-INSTANCE and ignores key prefixes and db numbers, so disjoint
+  # goo:qlog:* vs sparql:* keys prevent collisions but NOT cross-eviction: on a shared instance,
+  # log volume evicts cache entries and vice versa. Optional -- unset means the log falls back to
+  # the cache Redis, which is fine while logging is off (the default) but should be provisioned
+  # before enabling logging in an environment where the cache is load-bearing.
+  def self.add_log_redis_backend(*opts)
+    raise Exception, "add_log_redis_backend needs options" if opts.length == 0
+    opts = opts.first
+    host = opts.delete :host
+    port = opts.delete(:port) || 6379
+    # Same tightened timeout as the cache Redis (§7.3): a breaker cannot trip faster than the
+    # call's own timeout, so a slow log Redis must fail in seconds, not minutes.
+    @@log_redis_client = Redis.new host: host, port: port, timeout: redis_timeout
+    set_query_logging
+  end
+
+  # The Redis the query log writes to: its own instance when configured, else the cache's.
+  def self.log_redis_client
+    @@log_redis_client || @@redis_client
+  end
+
+  # The query logger attached to the :main query client (records SPARQL text, timing, result
+  # size, cache hits). Inert unless query logging was enabled.
+  def self.query_logger
+    @@sparql_backends[:main][:query].query_logger
+  end
+
+  # Backward-compatible alias for the fork-era name. AgroPortal's ontologies_api
+  # Admin::LoggingController calls Goo.logger.{get_logs,queries_last_n_seconds,users_query_count}.
+  def self.logger
+    query_logger
+  end
+
+  # --- SPARQL query counting -------------------------------------------------------------
+  # Counts store-bound SPARQL round-trips (cache hits don't count). Unlike wall time, the count
+  # is deterministic for a given code path + data, so it's the right signal for catching N+1 /
+  # query-fan-out regressions in goo/OLD across machines (laptop vs CI).
+  #
+  # Three independent tallies, all fed by tick_query_count:
+  #   - a thread-local block counter, armed only inside Goo.count_sparql_queries (tests);
+  #   - a per-request counter in RequestStore, armed for the duration of an HTTP request;
+  #   - a process-wide total, armed only by enable_query_count_total (test-run reporting).
+  # Each is a nil-check when unarmed, so there is no overhead in normal operation.
+
+  # Increment whichever counters are active. Called at the client seam per store round-trip.
+  def self.tick_query_count
+    count = Thread.current[:goo_query_count]
+    Thread.current[:goo_query_count] = count + 1 unless count.nil?
+    if RequestStore.active?
+      RequestStore.store[:goo_query_count] = RequestStore.store.fetch(:goo_query_count, 0) + 1
+    end
+    @@query_count_total += 1 unless @@query_count_total.nil?
+  end
+
+  # Store-bound SPARQL queries issued so far in the current HTTP request, or nil outside one.
+  #
+  # Deliberately keyed off RequestStore rather than the Goo::Debug middleware: Debug is mounted
+  # only when Goo.queries_debug? is set, which no environment config sets, so anything armed
+  # there is dead in a default production deploy. RequestStore::Middleware is mounted
+  # unconditionally by the API and clears the store per request. Same reasoning as the
+  # equivalent-predicates cache in Goo::Base::Where#retrieve_equivalent_predicates. Outside a
+  # request (cron, scripts) RequestStore is inactive and this returns nil.
+  def self.request_query_count
+    return nil unless RequestStore.active?
+
+    RequestStore.store.fetch(:goo_query_count, 0)
+  end
+
+  # Counted at the cache-hit branch of Client#query (a hit means caching is on and served the
+  # query without a store round-trip). Complements tick_query_count: store-bound + hits = total
+  # logical reads, and hits/(hits+store-bound-reads) is the cache effectiveness during the run.
+  def self.tick_cache_hit
+    @@cache_hit_total += 1 unless @@cache_hit_total.nil?
+  end
+
+  # Process-wide tallies for test-run reporting. Off in production (each tick is a single
+  # nil-check); a test harness opts in, then prints the totals at the end of the run. Not exact
+  # under concurrent threads, but test suites run queries serially.
+  def self.enable_query_count_total
+    @@query_count_total = 0
+    @@cache_hit_total = 0
+  end
+
+  def self.query_count_total
+    @@query_count_total
+  end
+
+  def self.cache_hit_total
+    @@cache_hit_total
+  end
+
+  # Count the store-bound SPARQL queries issued by the block. Nesting-safe: an inner count also
+  # rolls up into the enclosing counter. Returns the count for the block.
+  def self.count_sparql_queries
+    outer = Thread.current[:goo_query_count]
+    Thread.current[:goo_query_count] = 0
+    yield
+    Thread.current[:goo_query_count]
+  ensure
+    inner = Thread.current[:goo_query_count] || 0
+    Thread.current[:goo_query_count] = outer.nil? ? nil : outer + inner
+  end
+
+  def self.query_logging?
+    @@query_logging
+  end
+
+  # Turn SPARQL query logging on/off and (re)attach loggers to the registered backends.
+  # Default off; opt in via this call or the OP_QUERIES_LOGGING env var (see config.rb).
+  def self.enable_query_logging(enabled: false, file: nil, max_logs: nil, ttl: nil)
+    @@query_logging = enabled
+    @@query_logging_file = file
+    @@query_logging_max_logs = max_logs unless max_logs.nil?
+    @@query_logging_ttl = ttl unless ttl.nil?
+    set_query_logging
+  end
+
+  def self.set_query_logging
+    return unless @@sparql_backends.length > 0
+
+    @@sparql_backends.each_value do |epr|
+      logger = if @@query_logging
+                 Goo::SPARQL::QueryLogger.new(redis: log_redis_client,
+                                              file: @@query_logging_file,
+                                              max_logs: @@query_logging_max_logs,
+                                              ttl: @@query_logging_ttl)
+               else
+                 Goo::SPARQL::QueryLogger.new # inert
+               end
+      epr[:query].query_logger = logger
+      epr[:update].query_logger = logger
+      epr[:data].query_logger = logger
+    end
+  end
+
+  # Per-op SPARQL/Redis timeouts (de-fork review §7.3). Both env-tunable so a deployment running
+  # the circuit breaker can set them tight enough for a failure to register fast. The Redis
+  # default drops from a legacy 300s (a stalled Redis could tie up a worker for 5 minutes) to 5s;
+  # the SPARQL default is unchanged (10s) since some tree/bulk queries are legitimately slow --
+  # tighten per deployment via GOO_SPARQL_READ_TIMEOUT.
+  def self.sparql_read_timeout
+    (ENV['GOO_SPARQL_READ_TIMEOUT'] || 10_000).to_i
+  end
+
+  def self.redis_timeout
+    (ENV['GOO_REDIS_TIMEOUT'] || 5).to_i
   end
 
   def self.set_sparql_cache
@@ -501,21 +671,18 @@ module Goo
     def call(env)
       Thread.current[:ncbo_debug] = {}
       status, headers, response = @app.call(env)
-      if Thread.current[:ncbo_debug]
-        if Thread.current[:ncbo_debug][:sparql_queries]
-          queries = Thread.current[:ncbo_debug][:sparql_queries]
-          processing = queries.map { |x| x[0] }.inject { |sum,x| sum + x }
-          parsing = queries.map { |x| x[1] }.inject { |sum,x| sum + x }
-          headers["ncbo-time-goo-sparql-queries"] = "%.3f"%processing
-          headers["ncbo-time-goo-response-parsing"] = "%.3f"%parsing
-        end
-        if Thread.current[:ncbo_debug][:goo_process_query]
-          goo_totals = Thread.current[:ncbo_debug][:goo_process_query]
-            .inject { |sum,x| sum + x }
-          headers["ncbo-time-goo-process-query"] = "%.3f"%goo_totals
-        end
+      if Thread.current[:ncbo_debug] && Thread.current[:ncbo_debug][:goo_process_query]
+        goo_totals = Thread.current[:ncbo_debug][:goo_process_query]
+          .inject { |sum,x| sum + x }
+        headers["ncbo-time-goo-process-query"] = "%.3f"%goo_totals
       end
-      return [status, headers, response]
+      # Count of store-bound SPARQL queries this request issued -- deterministic, unlike timing.
+      # Only the *exposure* is gated on QUERIES_DEBUG (this middleware): the count itself is
+      # collected unconditionally in Goo.tick_query_count, so it is available to logs and metrics
+      # in a normal deploy without publishing per-request fan-out to every API caller.
+      count = Goo.request_query_count
+      headers["ncbo-sparql-query-count"] = count.to_s unless count.nil?
+      [status, headers, response]
     end
   end
 

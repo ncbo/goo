@@ -4,7 +4,7 @@ module Goo
       def process_query_call(count=false)
         if Goo.queries_debug? &&  Thread.current[:ncbo_debug]
           start = Time.now
-          query_resp = process_query_intl(count=count)
+          query_resp = process_query_init(count=count)
           (Thread.current[:ncbo_debug][:goo_process_query] ||= []) << (Time.now - start)
           return query_resp
         end

@@ -65,7 +65,7 @@ resilience calls are live, not hypothetical):
 | ID | Decision | Options | Recommended / Decision | Refs |
 |---|---|---|---|---|
 | **D1** | When the **Redis breaker is open**, what do cache-dependent reads do? | — **DECIDED: fail fast → `503` + alert** | Sheds load; protects the triplestore from the ~2000× amplification. Those endpoints are down during a Redis outage, but the backend and other tenants survive. Implement per H-3/§2A. | H-3, §2A |
-| **D2** | **Client-side breaker + bulkhead on the SPARQL endpoint?** | — **DECIDED: yes — reads + writes, now** | Client-side (latency/timeout/5xx-driven, *not* the 4store status scraper), both paths. First read-path protection any backend gets and the backstop against brownout thread-pool exhaustion. Tighten `read_timeout` (§7.3). | H-3, §2A, §7.3 |
+| **D2** | **Client-side breaker + bulkhead on the SPARQL endpoint?** | — **DECIDED: yes — reads + writes, now** | Client-side (latency/timeout/5xx-driven, *not* the 4store status scraper), both paths. First read-path protection any backend gets and the backstop against brownout thread-pool exhaustion. Tighten `read_timeout` (§7.3). Breaker state is **per-worker in-memory**, not cluster-wide — see **D14**. | H-3, §2A, §7.3, D14 |
 | **D3** | **Cache scope** | — **DECIDED: match the fork — JSON SELECT/ASK solutions only** | Minimize change now: add a guard so non-solution results (CONSTRUCT/DESCRIBE/graph) aren't cached + a test (T-7). goo core issues no CONSTRUCT/DESCRIBE (all SELECT, Accept JSON), so it's behavior-preserving for goo's own queries. **Follow-up:** confirm no downstream caller (OLD/cron/annotator) relies on caching a raw CONSTRUCT — moot for correctness (the fork didn't cache them either). | H-1, T-7 |
 | **D4** | **Invalidation-failure handling** | — **DECIDED: bounded backoff + jitter retry** (closest to original, minus the 15s stall) | Replace fixed `sleep(5)×3` with capped exponential backoff + jitter (sub-second). **Must add logging + a metric** — the current code logs *nothing* on failure, and the de-fork even dropped the fork's `puts "warning: error in cache invalidation"` ([cache.rb:109-127](lib/goo/sparql/cache.rb#L109)), so this is also fixing an observability regression. **Follow-up:** once the metric shows how often invalidation fails, evaluate whether *don't-retry-inline* is better. | M-5, N-3 |
 | **D5** | **Where caching is enabled + is `use_cache` authoritative** | — **DECIDED: goo default OFF; app opt-in via `OP_USE_CACHE`; flag made authoritative** | Make `use_cache` the single source of truth regardless of `add_redis_backend`/`add_sparql_backend` order; new consumers aren't silently load-bearing. | §6 |
@@ -87,7 +87,9 @@ resilience calls are live, not hypothetical):
 | **D10** | **`Marshal.load` trust boundary** | — **DECIDED: accept + document + verify** | Keep Marshal; document the trust assumption (Redis single-tenant, network-isolated, authed) and verify the deployment matches (bind/auth/DB). No serialization rewrite in this migration. | §7.1 |
 | **D11** | **Rollout/rollback shape** | — **DECIDED: caching branch first, observability fast-follow** | Ship `chore/sparql-client-defork` first (smaller blast radius, cleaner rollback); verify the `use_cache=false` kill switch (D5) first; merge `feat/sparql-observability` shortly after. **Refined by D13** (resilience becomes its own Ship 2 between the two). | §6 |
 | **D12** | **Tree N+1 roadmap** | — **DECIDED: file as durable follow-up** | Accept the cache-dependence for this migration (matches current behavior); track the tree-fetch batching separately (checklist #16). **Update:** phase 1 landed — ncbo/ontologies_linked_data#297 batched `hasChildren` (store-bound SPARQL dropped) **but production Redis ops stayed high post-deploy**: the dominant Redis traffic was never the per-node probes and remains **unattributed**. See revised checklist #16/#17. | §2A |
-| **D13** | **Ship sequencing — does §8's Must #1 gate the de-fork merge?** *(added in reviewer response)* | — **DECIDED: resequence into three ships** | **Ship 1 (de-fork, parity-pure):** vanilla 3.2.2 + bolt-ons + D3 (fork cache scope) + D8 (restore raise) + D5 (kill-switch authoritative) + §3 tests + D9 recorded A/B — behavior-identical to the fork, smallest reviewable diff, rollback = re-pin the fork. **Ship 2 (resilience; immediate fast-follow, own branch + review):** D1/D2 breaker + bulkhead, D4 retry/logging, §7.3 timeout tightening, T-6 failure-injection tests. **Ship 3:** observability (per D11). Rationale: gating the critical migration on a *new* resilience subsystem contradicts D11's small-blast-radius intent, and Ship 1's Redis-down behavior is **unchanged from the fork** (the fork also let Redis errors propagate out of `#query`) — so Ship 1 does not worsen production; it defers fixing an *inherited* risk by one ship, in exchange for a migration that can be verified as a pure port. | D11, H-3, §8 |
+| **D13** | **Ship sequencing — does §8's Must #1 gate the de-fork merge?** *(added in reviewer response)* | — **DECIDED: resequence into three ships** | **Ship 1 (de-fork, parity-pure):** vanilla 3.2.2 + bolt-ons + D3 (fork cache scope) + D8 (restore raise) + D5 (kill-switch authoritative) + §3 tests + D9 recorded A/B — behavior-identical to the fork, smallest reviewable diff, rollback = re-pin the fork. **Ship 2 (resilience; immediate fast-follow, own branch + review):** D1/D2 breaker + bulkhead, D4 retry/logging, §7.3 timeout tightening, T-6 failure-injection tests. **Ship 3:** observability (per D11). Rationale: gating the critical migration on a *new* resilience subsystem contradicts D11's small-blast-radius intent, and Ship 1's Redis-down behavior is **unchanged from the fork** (the fork also let Redis errors propagate out of `#query`) — so Ship 1 does not worsen production; it defers fixing an *inherited* risk by one ship, in exchange for a migration that can be verified as a pure port. **Superseded in part by D15: the MERGE order of Ships 2 and 3 reversed in practice.** | D11, H-3, §8, D15 |
+| **D14** | **Breaker state scope — per-process or cluster-wide?** *(added post-Ship-2)* | — **DECIDED: per-worker in-memory (Stoplight `DataStore::Memory`); defer cluster-wide** | Breaker state (failure counts, open/cool-off) lives in each process via [`Stoplight::DataStore::Memory`](../lib/goo/sparql/resilience.rb#L113) — **not shared** across unicorn workers. Consequence: with N workers each learns an outage independently, so ~`threshold × N` failures leak before all workers open, and half-open probes fire N times. Accepted because (i) under unicorn (process-per-worker, single-threaded — see D7) this is the natural unit and adds no new failure mode; (ii) a Redis-backed shared store would put breaker coordination **inside a dependency the breaker exists to protect** — if that Redis is the failing backend, coordination fails with it; (iii) `threshold × N` is still tiny vs. the un-braked flood, so load-shedding still holds. **Follow-up (not now):** cluster-wide coordination is feasible — the deployment already runs several Redis instances, so a *separate* instance (not the cache Redis, to avoid the circular dependency) could back `Stoplight::DataStore::Redis`. Revisit only if per-worker probe amplification proves noisy in production, or on a move to threaded Puma (which also reopens D2/D7). | D2, D7 |
+| **D15** | **Which of Ships 2 and 3 merges first?** *(added post-Ship-1, on review of both branches)* | — **DECIDED: observability (Ship 3) merges first, then resilience (Ship 2)** | D13 ordered resilience first, reasoning that it fixes an inherited production risk while observability is optional. That order is no longer available: Ship 2 puts a breaker **inside** the query logger's Redis writes (`LOG_REDIS_CIRCUIT`, [query_logger.rb `#with_redis`](../lib/goo/sparql/query_logger.rb)), so it now genuinely depends on Ship 3's code, and `feature/sparql-resilience` is built on top of `feature/sparql-observability`. Unpicking that to preserve D13's order would mean reworking the log breaker for no behavioral gain. Accepted because D13's risk argument is unaffected: the breaker is **opt-in** (`OP_SPARQL_CIRCUIT_BREAKER`, default off), so merging it second delays no protection that is actually switched on, and Ship 3 is measurement-only and cannot shed load. **Prerequisite carried forward:** the breaker cannot be *enabled* until the web layer maps `Goo::SPARQL::Resilience::CircuitOpenError` to a 503 — ontologies_api has no such handler, so an open breaker would surface as a 500 — plus an `on_state_change` alert hook, since a load-bearing dependency tripping is page-worthy. Until both exist, D1/D2 are implemented but not in force. | D13, D1, D2 |
 
 The hard cluster **D1 + D2 + D7** — the coupled "what happens when a dependency is down, and what
 keeps the request-thread pool from melting" question — is decided: fail-fast `503` at the Redis
@@ -584,6 +586,20 @@ caching-off, same machine, same redis, many iterations.
 **Pass bar:** allocations and query counts within noise (±, define) of the fork; generated SPARQL
 identical; warm-hit latency ≤ cold-miss by a wide margin (sanity that caching helps).
 
+**Recorded (Ship 3) — query-log write amplification.** The one measurement taken so far, because
+it gates enabling logging in production. Every logged query used to cost ~6 *sequential* Redis
+round-trips (`SET`, `ZADD`, `ZINCRBY`, `EXPIRE`, `INCR`, `ZCARD`) on a path §2A already measured at
+~2000 Redis ops per tree request. Batching them into one pipeline (with the trim's `ZCARD` riding
+along, so trim costs nothing until actually over `max_logs`):
+
+| | per logged query |
+|---|---|
+| unpipelined, ~6 RTT | 1.10 ms |
+| pipelined, 1 RTT | 0.22 ms |
+
+500 iterations against a live local Redis — **5.1×**. This is the write cost of *enabling* logging;
+it does not affect the default-off path, where `around` is a `return yield unless @enabled`.
+
 ---
 
 ## 6. Caching ↔ observability separation, kill-switch & rollback
@@ -598,9 +614,11 @@ key *names* are disjoint (`sparql:*` cache vs `goo:qlog:*` logs), so they don't 
 currently share one Redis instance under `allkeys-lru` (D6), which is global and ignores prefixes,
 so log volume *can* evict cache entries and vice versa. ("Disjoint keyspaces" prevents *collisions*,
 not *cross-eviction*.) **DECIDED (D6a): move cache and logs onto separate Redis instances** — the
-real isolation boundary, since `maxmemory`/eviction is per-instance (separate DBs would not fix it);
-needs the small goo wiring change noted in D6a/§7.2. Caveat L-1: "off" is *near*-zero, not literally
-zero, on the observability branch.
+real isolation boundary, since `maxmemory`/eviction is per-instance (separate DBs would not fix it).
+**IMPLEMENTED (Ship 3):** `Goo.add_log_redis_backend` / `Goo.log_redis_client`, wired into
+`set_query_logging`, with `OP_QUERIES_LOGGING_REDIS_HOST`/`_PORT` on the config side. Unconfigured
+it still falls back to the cache Redis — safe only while logging is off, which the startup banner
+now calls out. Caveat L-1: "off" is *near*-zero, not literally zero, on the observability branch.
 
 **Caching kill-switch: present, runtime, but with an ordering footgun.**
 - `Goo.use_cache = false` re-runs `set_sparql_cache`, which nils `redis_cache` on all three clients
@@ -651,15 +669,17 @@ are additive and the fork is still present locally. Recommend an env-driven defa
      This is *the* reason the §2A "drop SISMEMBER, evict at write-time" optimization is unsafe here:
      without the check, an entry orphaned by an LRU-evicted set would be served stale forever. Keep
      the check (pipelining `GET`+`SISMEMBER` is still safe and worthwhile; dropping it is not).
-   - **Cache and query-log share one Redis today, so LRU evicts them against each other — DECIDED:
-     split onto separate instances (D6a).** Both the cache and `QueryLogger` are wired to the same
-     `@@redis_client` ([goo.rb:276/289](lib/goo.rb#L276)), and `allkeys-lru` is global — it ignores
-     key prefixes *and* database numbers, so log volume can evict cache entries and vice versa (this
-     is why the "disjoint keyspaces ⇒ no interference" note in §6 was wrong). **Separate DBs on one
-     instance would not fix it** — `maxmemory`/eviction is per-instance — so the fix is separate
-     *instances*. Implementation: add a distinct log-Redis handle (a second `add_redis_backend`-style
-     endpoint) and point `QueryLogger.new(redis:)` ([goo.rb:276](lib/goo.rb#L276)) at it, leaving the
-     cache on the primary `@@redis_client`; consuming apps configure two endpoints.
+   - **Cache and query-log shared one Redis, so LRU evicted them against each other — DECIDED:
+     split onto separate instances (D6a). IMPLEMENTED (Ship 3).** `allkeys-lru` is global — it
+     ignores key prefixes *and* database numbers, so log volume could evict cache entries and vice
+     versa (this is why the "disjoint keyspaces ⇒ no interference" note in §6 was wrong, and why
+     the same claim in `query_logger.rb`'s header comment has been rewritten). **Separate DBs on
+     one instance would not fix it** — `maxmemory`/eviction is per-instance. goo now exposes
+     `add_log_redis_backend` / `log_redis_client`, which `set_query_logging` passes to
+     `QueryLogger.new(redis:)`, leaving the cache on the primary `@@redis_client`; consuming apps
+     configure two endpoints (`OP_QUERIES_LOGGING_REDIS_HOST`/`_PORT`). **Provision the second
+     instance before enabling logging** anywhere the cache is load-bearing — the unconfigured
+     fallback is still the cache Redis.
    - **Size `maxmemory` generously** — aggressive eviction of hot tree keys turns straight into a
      backend-load spike (§2A).
 3. **Connection/timeout posture.** Clients set `read_timeout: 10000` ([goo.rb:126](lib/goo.rb#L126))
@@ -669,10 +689,23 @@ are additive and the fork is still present locally. Recommend an env-driven defa
    timeouts are also what let the §2A breakers (Redis *and* SPARQL endpoint) detect failure *fast*
    instead of hanging — a breaker can't trip quicker than the call's own timeout. Tighten both, and
    pair the store timeout with a concurrency bulkhead.
-4. **Monitoring hooks.** `QueryLogger#cache_hit_rate` ([query_logger.rb:67](lib/goo/sparql/query_logger.rb#L67))
-   and the `ncbo-sparql-query-count` response header ([goo.rb:578](lib/goo.rb#L578)) are good
-   building blocks — wire them to whatever production uses (statsd/Prometheus) so the cache's
-   effectiveness and any query-count regressions are observable post-rollout.
+4. **Monitoring hooks.** `QueryLogger#cache_hit_rate` and the per-request SPARQL query count are
+   good building blocks — wire them to whatever production uses (New Relic/statsd/Prometheus) so
+   the cache's effectiveness and any query-count regressions are observable post-rollout.
+
+   **Amended (Ship 3).** The count was armed inside `Goo::Debug`, which the API mounts only behind
+   `if Goo.queries_debug?` ([ontologies_api app.rb:130]) — and no environment config sets it, so
+   **the counter was dead in every real deploy**. Exactly the defect mdorf found and fixed for the
+   equivalent-predicates cache (`0a0478f`): *`Goo::Debug` is not a production mount point.* Arming
+   now lives on `RequestStore` (mounted unconditionally at app.rb:148, cleared per request, guarded
+   by `RequestStore.active?` so cron/scripts stay inert) and is read via `Goo.request_query_count`.
+
+   **Collection and exposure are deliberately split.** The count is collected unconditionally;
+   `Goo::Debug` still emits the `ncbo-sparql-query-count` *header*, so it remains behind
+   `QUERIES_DEBUG`. A response header is visible to every API caller, and publishing internal
+   query fan-out by default is not worth the convenience — staging can flip it per-environment.
+   The intended production read path is a metric or an admin-gated endpoint (§7.7), not the header.
+
 5. **Gem-pin hygiene.** `Gemfile` pins `sparql-client '3.2.2'` (exact). Good for reproducibility;
    add a comment that the bolt-ons assume 3.2.2's `to_s`/`make_post_request`/`parse_*` internals
    (M-3) so a bump triggers re-review.
@@ -680,6 +713,16 @@ are additive and the fork is still present locally. Recommend an env-driven defa
    `Goo.sparql_query_client`, `cache.invalidate`, and the write helpers. A thin contract test in
    goo asserting those method signatures exist would catch L-2/L-3 breakage before downstream
    CI does.
+7. **Reading the log in production (§7.7).** AgroPortal already solves this with an AgroPortal-only
+   `Admin::LoggingController` (`controllers/logging_controller.rb`): `/admin/latest_day_query_logs`,
+   `/admin/last_n_s_query_logs?seconds=N`, `/admin/user_query_count`, gated on
+   `enable_security && REMOTE_USER.admin?` and paginated with the standard helpers. Nothing in
+   their UI consumes them — they are admin curl/script tools. Our back-compat shim (`Goo.logger` →
+   `get_logs`/`queries_last_n_seconds`/`users_query_count`) keeps that controller working against
+   de-forked goo. Porting a read-only equivalent to `ncbo/ontologies_api`, extended with
+   `cache_hit_rate`, is the recommended NCBO exposure channel: 403-by-default rather than
+   public-by-default, reusing auth that already exists. Note what AgroPortal's version is *not* —
+   a per-request fan-out count. That is what the counter above adds.
 
 ---
 
@@ -745,10 +788,15 @@ keeps it a verifiable, parity-pure port. Rationale in D13.
 10. **M-3** — guard test for vanilla `to_s` drift; start upstreaming the multiple-FROM + nested-UNION
     deltas so the override can eventually be deleted.
 11. **N-1** — commit or remove the referenced `docs/sparql-client-defork-proposal.md`.
-12. **D6a / §7.2 — put cache and query-log on separate Redis *instances*** (decided). Requires a goo
-    wiring change: today both use one `@@redis_client` ([goo.rb:193/276/289](lib/goo.rb#L193)); add a
-    distinct log-Redis handle and point `QueryLogger.new(redis:)` at it. (Separate DBs won't do —
-    `maxmemory`/`allkeys-lru` is per-instance.) Size the cache `maxmemory` generously (§2A).
+12. **D6a / §7.2 — put cache and query-log on separate Redis *instances*** (decided). **DONE**
+    (Ship 3): `Goo.add_log_redis_backend` + `Goo.log_redis_client` (lib/goo.rb) give the log its own
+    handle, which `Goo.set_query_logging` passes to `QueryLogger.new(redis:)`; env-configurable via
+    `OP_QUERIES_LOGGING_REDIS_HOST`/`_PORT`. Unconfigured it falls back to `@@redis_client`, so
+    existing deployments are unchanged — but that fallback is only safe while logging is off, and
+    the startup banner says so when the two are shared. The `query_logger.rb` comment asserting the
+    opposite ("log volume never evicts cache memory") is corrected. Still size the cache
+    `maxmemory` generously (§2A), and provision the second instance before enabling logging in an
+    environment where the cache is load-bearing.
 13. **L-2/L-3 / §7.6** — downstream API contract test for `Goo.logger.*` and the public client
     surface.
 14. **Benchmark harness (§5)** — allocations + query-count + cache-op micro-bench vs the fork.

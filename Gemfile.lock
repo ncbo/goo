@@ -19,6 +19,7 @@ PATH
   remote: .
   specs:
     goo (0.0.2)
+      activesupport
       addressable (~> 2.8)
       pry
       rdf
@@ -26,9 +27,11 @@ PATH
       rdf-rdfxml
       rdf-vocab
       redis
+      request_store
       rest-client
       rsolr
       sparql-client (= 3.2.2)
+      stoplight (~> 5.0)
       uuid
 
 GEM
@@ -49,6 +52,7 @@ GEM
       uri (>= 0.13.1)
     addressable (2.8.9)
       public_suffix (>= 2.0.2, < 8.0)
+    ansi (1.6.0)
     ast (2.4.3)
     base64 (0.3.0)
     bcp47_spec (0.2.1)
@@ -98,6 +102,11 @@ GEM
       prism (~> 1.5)
     minitest-hooks (1.5.4)
       minitest (> 5.3)
+    minitest-reporters (1.8.0)
+      ansi
+      builder
+      minitest (>= 5.0, < 7)
+      ruby-progressbar
     mustermann (3.0.4)
       ruby2_keywords (~> 0.0.1)
     net-ftp (0.3.9)
@@ -213,6 +222,9 @@ GEM
     sparql-client (3.2.2)
       net-http-persistent (~> 4.0, >= 4.0.2)
       rdf (~> 3.2, >= 3.2.11)
+    stoplight (5.8.2)
+      concurrent-ruby
+      zeitwerk
     systemu (2.6.5)
     thin (2.0.1)
       daemons (~> 1.0, >= 1.0.9)
@@ -231,6 +243,7 @@ GEM
     uri (1.1.1)
     uuid (2.3.9)
       macaddr (~> 1.0)
+    zeitwerk (2.8.2)
 
 PLATFORMS
   aarch64-linux-gnu
@@ -244,6 +257,7 @@ DEPENDENCIES
   goo!
   minitest (~> 6.0)
   minitest-hooks
+  minitest-reporters
   net-ftp
   ontoportal_testkit!
   pry
