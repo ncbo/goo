@@ -53,6 +53,7 @@ module Goo
   @@pluralize_models = false
   @@uuid = UUID.new
   @@debug_enabled = false
+  @@data_load_debug = false
   @@use_cache = false
   @@query_logging = false
   @@query_logging_file = nil
@@ -212,6 +213,17 @@ module Goo
 
   def self.queries_debug?
     return @@debug_enabled
+  end
+
+  # Per-batch progress lines during bulk triple loading. Off by default: append_triples_batch
+  # emits one line per chunk, which drowns the unit-test output of dependent gems
+  # (ontologies_linked_data) in thousands of lines that say nothing about the test.
+  def self.data_load_debug(flag)
+    @@data_load_debug = flag
+  end
+
+  def self.data_load_debug?
+    return @@data_load_debug
   end
 
   def self.add_search_backend(name, *opts)

@@ -42,6 +42,10 @@ module Goo
     @settings.query_logging_max_logs ||= (ENV['OP_QUERIES_LOGGING_MAX_LOGS'] || 10_000).to_i
     @settings.query_logging_ttl        ||= (ENV['OP_QUERIES_LOGGING_TTL'] || 86_400).to_i
     @settings.queries_debug       ||= ENV['QUERIES_DEBUG'] || false
+    # Bulk-load progress lines (one per triple batch). Parse truthiness rather than taking the
+    # raw string -- GOO_DATA_LOAD_DEBUG=false is a non-empty String and would otherwise turn the
+    # output ON (same treatment as query_logging above).
+    @settings.data_load_debug     ||= %w[1 true yes on].include?(ENV['GOO_DATA_LOAD_DEBUG'].to_s.strip.downcase)
     # SPARQL query caching: goo default OFF; env-driven opt-in so production can flip caching
     # without a code change (de-fork review D5).
     @settings.use_cache           ||= %w[1 true yes on].include?(ENV['OP_USE_CACHE'].to_s.strip.downcase)
@@ -65,6 +69,7 @@ module Goo
     begin
       Goo.configure do |conf|
         conf.queries_debug(@settings.queries_debug)
+        conf.data_load_debug(@settings.data_load_debug)
         conf.add_sparql_backend(:main,
                                 backend_name: @settings.goo_backend_name,
                                 query: "http://#{@settings.goo_host}:#{@settings.goo_port}#{@settings.goo_path_query}",
