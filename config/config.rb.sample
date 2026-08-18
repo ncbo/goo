@@ -25,6 +25,11 @@ Goo.config do |config|
   # whether it is published to API callers.
   config.queries_debug       = false
 
+  # Per-batch progress lines while bulk-loading triples (env: GOO_DATA_LOAD_DEBUG). Off by
+  # default: append_triples_batch emits one line per batch, and a single unit test in a
+  # dependent gem produces dozens of them. Turn on when debugging a slow or failing load.
+  # config.data_load_debug   = true
+
   # SPARQL query logging (off by default; env equivalent OP_QUERIES_LOGGING).
   # config.query_logging      = true
   # config.query_logging_file = '/var/log/goo/sparql.log'

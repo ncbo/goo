@@ -186,7 +186,7 @@ module Goo
 
       def append_triples_batch(graph, triples, mime_type_in, current_line = 0)
         begin
-          puts "Appending triples in batch of #{triples.size} triples from line #{current_line}"
+          puts "Appending triples in batch of #{triples.size} triples from line #{current_line}" if Goo.data_load_debug?
           execute_append_request graph, triples.join, mime_type_in
         rescue RestClient::Exception => e
           puts "Error in appending triples request: #{e.response}"
