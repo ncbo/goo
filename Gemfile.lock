@@ -29,7 +29,7 @@ PATH
       redis
       request_store
       rest-client
-      rsolr
+      rsolr (>= 2.6.0)
       sparql-client (= 3.2.2)
       stoplight (~> 5.0)
       uuid
@@ -179,9 +179,9 @@ GEM
       mime-types (>= 1.16, < 4.0)
       netrc (~> 0.8)
     rexml (3.4.4)
-    rsolr (2.6.0)
+    rsolr (3.0.0)
       builder (>= 2.1.2)
-      faraday (>= 0.9, < 3, != 2.0.0)
+      faraday (>= 1.0, < 3)
     rubocop (1.88.0)
       json (~> 2.3)
       language_server-protocol (~> 3.17.0.2)
@@ -240,7 +240,7 @@ GEM
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
     unicode-emoji (4.2.0)
-    uri (1.1.1)
+    uri (1.1.2)
     uuid (2.3.9)
       macaddr (~> 1.0)
     zeitwerk (2.8.2)
