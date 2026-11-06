@@ -228,6 +228,111 @@ class TestSparqlQueryCharacterization < Goo::TestCase
     assert_equal expected, got
   end
 
+  # --- nested order_by ----------------------------------------------------------
+
+  # The path to the ordered attribute goes in ONE OPTIONAL. As two OPTIONALs, a solution
+  # with no university would join `?v <name> ?n` against every named resource, and
+  # Virtuoso is slow on that shape (ontologies_api metrics join for GO: 9.6 s vs 0.1 s).
+  def test_nested_order_by_puts_the_path_in_one_optional
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Program> ' \
+      'FROM <http://goo.org/default/University> FROM <http://goo.org/default/Address> ' \
+      'WHERE { ?id a <http://goo.org/default/Program> . ' \
+      '?id <http://goo.org/default/university> ?internal_join_var_0 . ' \
+      '?internal_join_var_0 <http://goo.org/default/address> ?internal_join_var_1 . ' \
+      '?internal_join_var_1 <http://goo.org/default/country> "US" . ' \
+      'OPTIONAL { ?id <http://goo.org/default/university> ?internal_join_var_2 . ' \
+      '?internal_join_var_2 <http://goo.org/default/name> ?internal_join_var_3 . } } ' \
+      'ORDER BY DESC(?internal_join_var_3)'
+    %w[4store virtuoso allegrograph graphdb].each do |backend|
+      got = sparql_for(backend) do
+        Program.where(university: { address: { country: "US" } }).order_by(university: { name: :desc }).all
+      end
+      assert_equal expected, got, "nested order_by should not vary by backend (#{backend})"
+    end
+  end
+
+  # Same as above through an inverse attribute (the shape of Metric -> submission).
+  def test_nested_order_by_through_inverse_attribute
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/University> ' \
+      'FROM <http://goo.org/default/Program> ' \
+      'WHERE { ?id a <http://goo.org/default/University> . ' \
+      '?internal_join_var_0 <http://goo.org/default/university> ?id . ' \
+      '?internal_join_var_0 <http://goo.org/default/name> "BioInformatics" . ' \
+      'OPTIONAL { ?internal_join_var_1 <http://goo.org/default/university> ?id . ' \
+      '?internal_join_var_1 <http://goo.org/default/credits> ?internal_join_var_2 . } } ' \
+      'ORDER BY DESC(?internal_join_var_2)'
+    got = sparql_for("4store") do
+      University.where(programs: { name: "BioInformatics" }).order_by(programs: { credits: :desc }).all
+    end
+    assert_equal expected, got
+  end
+
+  # When the WHERE already requires the whole path, order on the variable it binds.
+  def test_nested_order_by_reuses_a_path_the_where_requires
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Program> ' \
+      'FROM <http://goo.org/default/University> ' \
+      'WHERE { ?id a <http://goo.org/default/Program> . ' \
+      '?id <http://goo.org/default/university> ?internal_join_var_0 . ' \
+      '?internal_join_var_0 <http://goo.org/default/name> ?internal_join_var_1 . ' \
+      'FILTER(str(?internal_join_var_1) =  "Stanford") } ' \
+      'ORDER BY ASC(?internal_join_var_1)'
+    got = sparql_for("4store") do
+      Program.where.filter(Goo::Filter.new(university: [:name]) == "Stanford")
+             .order_by(university: { name: :asc }).all
+    end
+    assert_equal expected, got
+  end
+
+  # When the WHERE fixes the ordered value to a constant, every solution shares it, so
+  # the key is dropped. This used to render `ORDER BY ASC(?)`, which is invalid SPARQL.
+  def test_nested_order_by_on_a_constant_is_dropped
+    where =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Program> ' \
+      'FROM <http://goo.org/default/University> ' \
+      'WHERE { ?id a <http://goo.org/default/Program> . ' \
+      '?id <http://goo.org/default/university> ?internal_join_var_0 . ' \
+      '?internal_join_var_0 <http://goo.org/default/name> "Stanford" . '
+
+    got = sparql_for("4store") do
+      Program.where(university: { name: "Stanford" }).order_by(university: { name: :asc }).all
+    end
+    assert_equal "#{where}}", got
+
+    # Other keys are kept.
+    got = sparql_for("4store") do
+      Program.where(university: { name: "Stanford" }).order_by(university: { name: :asc }, name: :asc).all
+    end
+    assert_equal "#{where}OPTIONAL { ?id <http://goo.org/default/name> ?name . } } ORDER BY ASC(?name)", got
+  end
+
+  # A pattern with the same predicate on a different subject is not the ordered path:
+  # Program#name and University#name share <name>, and the order key used to resolve to
+  # the program's own name (or to `?` when that was a literal).
+  def test_nested_order_by_ignores_the_same_predicate_on_another_subject
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Program> ' \
+      'FROM <http://goo.org/default/University> ' \
+      'WHERE { ?id a <http://goo.org/default/Program> . ' \
+      '?id <http://goo.org/default/name> ?internal_join_var_0 . ' \
+      'OPTIONAL { ?id <http://goo.org/default/university> ?internal_join_var_1 . ' \
+      '?internal_join_var_1 <http://goo.org/default/name> ?internal_join_var_2 . } ' \
+      'FILTER(str(?internal_join_var_0) =  "CompSci") } ' \
+      'ORDER BY ASC(?internal_join_var_2)'
+    got = sparql_for("4store") do
+      Program.where.filter(Goo::Filter.new(:name) == "CompSci").order_by(university: { name: :asc }).all
+    end
+    assert_equal expected, got
+
+    got = sparql_for("4store") do
+      Program.where(name: "CompSci").order_by(university: { name: :asc }).all
+    end
+    assert_includes got, 'ORDER BY ASC(?internal_join_var_1)'
+    refute_includes got, 'ASC(?)'
+  end
+
   def test_count
     expected =
       'SELECT  ( COUNT(DISTINCT ?id) AS ?count_var ) ' \

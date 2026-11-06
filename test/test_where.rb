@@ -666,4 +666,55 @@ class TestWhere < Goo::TestCase
     assert_equal countries.sort{|a,b| b<=>a }, countries
   end
 
+  def test_nested_order_by_alongside_a_join_on_the_same_attribute
+    # The WHERE joins through university (via its address), the ordering on university.name.
+    programs = Program.where(category: [code: "Biology"]).include(university: [:name])
+                      .order_by(university: { name: :desc }).all
+    names = program_university_names(programs)
+    assert_equal 6, names.length
+    assert_equal names.sort.reverse, names
+
+    programs = Program.where(university: { address: { country: "UK" } }).include(:name, university: [:name])
+                      .order_by(university: { name: :asc }, name: :asc).all
+    assert_equal %w[BioInformatics CompSci Medicine], programs.map(&:name)
+  end
+
+  def test_nested_order_by_on_a_value_the_where_fixes
+    # Used to render `ORDER BY ASC(?)`.
+    programs = Program.where(university: { name: "Stanford" }).order_by(university: { name: :asc }).all
+    assert_equal 3, programs.length
+
+    programs = Program.where(name: "CompSci").include(university: [:name])
+                      .order_by(university: { name: :desc }).all
+    assert_equal %w[UPM Stanford Southampton], program_university_names(programs)
+  end
+
+  def test_nested_order_by_does_not_reuse_a_filter_on_another_subject
+    # Program#name and University#name share a predicate; the key must be the university's.
+    programs = Program.where.filter(Goo::Filter.new(:name) == "CompSci").include(university: [:name])
+                      .order_by(university: { name: :desc }).all
+    assert_equal %w[UPM Stanford Southampton], program_university_names(programs)
+  end
+
+  def test_nested_order_by_with_the_first_hop_unbound
+    # A student enrolled nowhere has no credits to order by. With one OPTIONAL per hop it
+    # was joined to every program's credits instead.
+    loner = Student.new(name: "Zoe Unenrolled", birth_date: DateTime.parse('1978-02-01'))
+    loner.save
+    students = Student.where.include(:name).order_by(enrolled: { credits: :desc }).all
+    assert_equal Student.where.all.length, students.length
+    assert_equal loner.id, students.last.id
+
+    students = Student.where.include(:name).order_by(enrolled: { credits: :asc }).all
+    assert_equal loner.id, students.first.id
+  ensure
+    loner&.delete
+  end
+
+  private
+
+  def program_university_names(programs)
+    programs.map { |p| p.university.name }
+  end
+
 end

@@ -17,6 +17,7 @@ module Goo
         @enable_rules = options[:rules]
         @order_by = options[:order_by]
         @internal_variables_map = {}
+        @order_by_vars = {}
         @equivalent_predicates = options[:equivalent_predicates]
         @properties_to_include = options[:properties_to_include]
         @union_with_bind = nil
@@ -45,7 +46,9 @@ module Goo
           .union_bind_in_where(properties_to_include)
 
         optional_patterns.each do |optional|
-          @query.optional(*[optional])
+          # An entry is either one triple pattern or a group of them (a nested order_by
+          # path), which must stay together in a single OPTIONAL.
+          optional_group?(optional) ? @query.optional(*optional) : @query.optional(optional)
         end
 
         query_filter_str&.each do |filter|
@@ -62,8 +65,10 @@ module Goo
         # renders after the real filters (matching the old fork DSL ordering).
         apply_union_with_bind
 
-        @query.order_by(*order_by_string) if @order_by
-
+        if @order_by
+          order_conditions = order_by_string
+          @query.order_by(*order_conditions) unless order_conditions.empty?
+        end
 
         put_query_aggregate_vars(aggregate_vars) if aggregate_vars
         count if @count
@@ -136,17 +141,15 @@ module Goo
         self
       end
 
+      # ORDER BY conditions for @order_by. A nested key orders on the variable that
+      # init_order_by resolved for it; a key it resolved to nil (the WHERE fixes that value
+      # to a constant, so every solution has the same one) is left out.
       def order_by_string
-        order_variables = []
-        order_str = @order_by&.map do |attr, order|
-          if order.is_a?(Hash)
-            sub_attr, order = order.first
-            attr =  @internal_variables_map.select{ |internal_var, attr_var| attr_var.eql?({attr => sub_attr}) || attr_var.eql?(sub_attr)}.keys.last
-          end
-          order_variables << attr
-          "#{order.to_s.upcase}(?#{attr})"
+        @order_by.filter_map do |attr, order|
+          order = order.first.last if order.is_a?(Hash)
+          var = @order_by_vars.fetch(attr, attr)
+          "#{order.to_s.upcase}(?#{var})" if var
         end
-        order_str
       end
 
       def from(graphs)
@@ -308,29 +311,27 @@ module Goo
           order_by.each do |attr, direction|
 
             if direction.is_a?(Hash)
-              # TODO this part can be improved/refactored, the complexity was added because order by don't work
-              # if the pattern is in the mandatory ones (variable `patterns`)
-              # and optional (variable `optional_patterns`) at the same time
-              sub_attr, direction = direction.first
+              # Nested ordering, e.g. order_by(submission: {submissionId: :desc}).
+              sub_attr, = direction.first
               graph_match_iteration = Goo::Base::PatternIteration.new(Goo::Base::Pattern.new({attr => [sub_attr]}))
-              old_internal = internal_variables.dup
-              old_patterns = optional_patterns.dup
+              old_internal = internal_variables
+              path_patterns = []
+              walk_pattern(klass, graph_match_iteration, graphs, path_patterns, @unions, internal_variables, in_aggregate = false, query_options, @collection)
+              path_variables = internal_variables - old_internal
 
-              walk_pattern(klass, graph_match_iteration, graphs, optional_patterns, @unions, internal_variables, in_aggregate = false, query_options, @collection)
-              new_variables = (internal_variables - old_internal)
-              internal_variables.delete(new_variables)
-              new_patterns = optional_patterns - old_patterns
-              already_existent_pattern = patterns.select{|x| x[1].eql?(new_patterns.last[1])}.first
-
-              if already_existent_pattern
-                already_existent_variable = already_existent_pattern[2]
-                optional_patterns = old_patterns
-                key = @internal_variables_map.select{|key, value|  key.eql?(new_variables.last)}.keys.first
-                @internal_variables_map[key] = (already_existent_variable || new_variables.last) if key
-
-                #variables << already_existent_variable
+              if (bound = required_path_term(path_patterns, patterns, path_variables))
+                # The WHERE already requires this exact path: order on the variable it
+                # binds, or on nothing if it fixes the value to a constant.
+                term = bound.first
+                @order_by_vars[attr] = term.is_a?(Symbol) ? term : nil
               else
-                #variables <<  new_variables.last
+                # The whole path goes in one OPTIONAL. With one OPTIONAL per hop, a
+                # solution whose first hop is unbound joins the second hop against every
+                # subject that has the attribute, and Virtuoso is slow on that shape even
+                # when the first hop is always bound (old ontologies_api metrics join for
+                # GO: 9.6 s split, 0.1 s grouped).
+                optional_patterns << path_patterns
+                @order_by_vars[attr] = path_variables.last
               end
 
             else
@@ -345,6 +346,42 @@ module Goo
           end
         end
         [order_by, variables, optional_patterns, patterns]
+      end
+
+      # True for an optional_patterns entry that holds several triple patterns (rendered
+      # as one OPTIONAL group) rather than a single [subject, predicate, object].
+      def optional_group?(optional)
+        optional.first.is_a?(Array)
+      end
+
+      # Follow an order_by path (one triple pattern per hop, each introducing one of
+      # path_variables) through the required WHERE patterns. If every hop matches a required
+      # pattern with the same predicate from the same term, returns [term] for the term the
+      # last hop binds there: a variable, or a constant such as a literal. Returns nil if the
+      # path is not fully required. Only `patterns` count: terms bound in OPTIONALs or UNION
+      # branches may be unbound for some solutions.
+      def required_path_term(path_patterns, patterns, path_variables, bindings = {})
+        return [bindings[path_variables.last]] if path_patterns.empty?
+
+        hop, *rest = path_patterns
+        subject, predicate, object = hop.map { |term| bindings.fetch(term, term) }
+        # A direct hop introduces its variable as the object, an inverse hop as the subject.
+        new_var, known, new_pos, known_pos =
+          if path_variables.include?(object) && !bindings.key?(object)
+            [object, subject, 2, 0]
+          else
+            [subject, object, 0, 2]
+          end
+
+        patterns.each do |pattern|
+          next unless pattern.is_a?(Array) && pattern.length == 3
+          next unless pattern[1] == predicate && pattern[known_pos] == known
+
+          found = required_path_term(rest, patterns, path_variables,
+                                     bindings.merge(new_var => pattern[new_pos]))
+          return found if found
+        end
+        nil
       end
 
       def sparql_op_string(op)
