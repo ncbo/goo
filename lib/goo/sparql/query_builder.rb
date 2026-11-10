@@ -364,6 +364,15 @@ module Goo
                               internal_variables,
                               inspected_patterns,
                               collection)
+        # Returns :optional when the filter's triple patterns must go in OPTIONAL
+        # blocks instead of being required:
+        #  - bound/unbound tests, which are about whether the triple exists at all
+        #  - any OR: a record missing one attribute must still be able to match on
+        #    another (SPARQL evaluates `error || true` as true, so an unbound
+        #    variable in one branch does not sink the whole disjunction)
+        # Everything else keeps required patterns; an unbound variable would make
+        # the filter fail anyway, and required patterns are cheaper for the store.
+        optional = false
         #create a object variable to project the value in the filter
         filter.filter_tree.each do |filter_operation|
           filter_pattern_match = {}
@@ -385,18 +394,19 @@ module Goo
 
           if filter_operation.value.instance_of?(Goo::Filter)
             filter_operations << "#{sparql_op_string(filter_operation.operator)}"
-            query_filter_sparql(klass, filter_operation.value, filter_patterns,
-                                filter_graphs, filter_operations,
-                                internal_variables, inspected_patterns, collection)
+            optional = true if filter_operation.operator == :or
+            nested = query_filter_sparql(klass, filter_operation.value, filter_patterns,
+                                         filter_graphs, filter_operations,
+                                         internal_variables, inspected_patterns, collection)
+            optional = true if nested == :optional
           else
             case filter_operation.operator
             when  :unbound
               filter_operations << "!BOUND(?#{filter_var.to_s})"
-              return :optional
-
+              optional = true
             when :bound
               filter_operations << "BOUND(?#{filter_var.to_s})"
-              return :optional
+              optional = true
             when :regex
               if  filter_operation.value.is_a?(String)
                 filter_operations << "REGEX(STR(?#{filter_var.to_s}) , \"#{filter_operation.value.to_s}\", \"i\")"
@@ -417,6 +427,7 @@ module Goo
 
           end
         end
+        optional ? :optional : nil
       end
 
       def filter_query_strings(collection, graphs, klass,

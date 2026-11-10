@@ -562,6 +562,50 @@ class TestWhere < Goo::TestCase
     assert_equal ["John","Daniel","Susan"].sort, st.map { |x| x.name }.sort
   end
 
+  # An OR'd filter must not turn an optional attribute into a required pattern:
+  # a record that lacks one of the filtered attributes can still match on another.
+  def test_filter_or_with_unset_optional_attribute
+    # Only Susan and Daniel have awards; Lee has none.
+    f = Goo::Filter.new(:name).regex("Lee")
+                   .or(Goo::Filter.new(:awards).regex("no-such-award"))
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Lee"], st.map { |x| x.name }
+
+    # Both branches can contribute matches.
+    f = Goo::Filter.new(:name).regex("Lee")
+                   .or(Goo::Filter.new(:awards).regex("award2"))
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Daniel", "Lee"], st.map { |x| x.name }.sort
+
+    # Optional attribute first, required attribute second.
+    f = Goo::Filter.new(:awards).regex("no-such-award")
+                   .or(Goo::Filter.new(:name).regex("Lee"))
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Lee"], st.map { |x| x.name }
+
+    # Three-way chain, as built by the ontologies_api user search.
+    f = Goo::Filter.new(:name).regex("Lee")
+                   .or(Goo::Filter.new(:awards).regex("no-such-award"))
+                   .or(Goo::Filter.new(:awards).regex("another-miss"))
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Lee"], st.map { |x| x.name }
+
+    # Same problem with non-regex operators.
+    f = (Goo::Filter.new(:name) == "Lee").or(Goo::Filter.new(:awards) == "no-such-award")
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Lee"], st.map { |x| x.name }
+
+    # No branch matches: nothing comes back.
+    f = Goo::Filter.new(:name).regex("no-such-name")
+                   .or(Goo::Filter.new(:awards).regex("no-such-award"))
+    assert_equal [], Student.where.filter(f).all
+
+    # A single regex on an optional attribute still excludes records without it.
+    f = Goo::Filter.new(:awards).regex("award")
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Daniel", "Susan"], st.map { |x| x.name }.sort
+  end
+
   def test_aggregated
     #students and awards default
     sts = Student.where.include(:name).aggregate(:count,:awards).all

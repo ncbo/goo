@@ -219,6 +219,23 @@ class TestSparqlQueryCharacterization < Goo::TestCase
     assert_equal expected, got
   end
 
+  # OR'd filters put their patterns in OPTIONAL blocks so a record missing one of the
+  # filtered attributes can still match on another.
+  def test_filter_regex_or
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Student> ' \
+      'WHERE { ?id a <http://goo.org/default/Student> . ' \
+      'OPTIONAL { ?id <http://goo.org/default/name> ?internal_join_var_0 . } ' \
+      'OPTIONAL { ?id <http://goo.org/default/awards> ?internal_join_var_1 . } ' \
+      'FILTER(REGEX(STR(?internal_join_var_0) , "Stan", "i") || ' \
+      'REGEX(STR(?internal_join_var_1) , "Stan", "i")) }'
+    got = sparql_for("4store") do
+      f = Goo::Filter.new(:name).regex("Stan").or(Goo::Filter.new(:awards).regex("Stan"))
+      Student.where.filter(f).all
+    end
+    assert_equal expected, got
+  end
+
   def test_order_by
     expected =
       'SELECT DISTINCT ?id FROM <http://goo.org/default/University> ' \
