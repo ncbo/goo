@@ -3,6 +3,15 @@ module Goo
     class QueryBuilder
       include Goo::SPARQL::QueryPatterns
 
+      # Triple patterns that must be emitted together inside a single OPTIONAL block.
+      class OptionalGroup
+        attr_reader :patterns
+
+        def initialize(patterns)
+          @patterns = patterns
+        end
+      end
+
       def initialize(options)
         @no_graphs = options[:no_graphs]
         @query_filters = options[:filters]
@@ -45,7 +54,11 @@ module Goo
           .union_bind_in_where(properties_to_include)
 
         optional_patterns.each do |optional|
-          @query.optional(*[optional])
+          if optional.is_a?(OptionalGroup)
+            @query.optional(*optional.patterns)
+          else
+            @query.optional(*[optional])
+          end
         end
 
         query_filter_str&.each do |filter|
@@ -359,6 +372,11 @@ module Goo
         op.to_s
       end
 
+      # Appends the SPARQL for `filter` (and its nested filters) to `filter_operations`.
+      # `filter_patterns` receives one entry per filtered attribute: the chain of
+      # triple patterns that leads from ?id to that attribute's value. A plain
+      # attribute is a chain of one; a nested path such as `enrolled: [:credits]`
+      # is a chain of several.
       def query_filter_sparql(klass, filter, filter_patterns, filter_graphs,
                               filter_operations,
                               internal_variables,
@@ -374,11 +392,13 @@ module Goo
           end
           unless inspected_patterns.include?(filter_pattern_match)
             attr = filter_pattern_match.keys.first
+            chain = []
             patterns_for_match(klass, attr, filter_pattern_match[attr],
-                               filter_graphs, filter_patterns,
+                               filter_graphs, chain,
                                [], internal_variables,
                                subject = :id, in_union = false, in_aggregate = false,
                                collection = collection)
+            filter_patterns << chain unless chain.empty?
             inspected_patterns[filter_pattern_match] = internal_variables.last
           end
           filter_var = inspected_patterns[filter_pattern_match]
@@ -392,11 +412,8 @@ module Goo
             case filter_operation.operator
             when  :unbound
               filter_operations << "!BOUND(?#{filter_var.to_s})"
-              return :optional
-
             when :bound
               filter_operations << "BOUND(?#{filter_var.to_s})"
-              return :optional
             when :regex
               if  filter_operation.value.is_a?(String)
                 filter_operations << "REGEX(STR(?#{filter_var.to_s}) , \"#{filter_operation.value.to_s}\", \"i\")"
@@ -419,6 +436,49 @@ module Goo
         end
       end
 
+      # Decides where the triple patterns of a filter go in the query.
+      #
+      # :required - in the main graph pattern. A record with no value for a filtered
+      #   attribute cannot match, which is right for a single condition or for
+      #   conditions that only involve one attribute.
+      # :optional_groups - one OPTIONAL block per filtered attribute, holding that
+      #   attribute's whole pattern chain. Needed when the filter spans several
+      #   attributes and contains an OR (a record missing one attribute must still be
+      #   able to match on another; SPARQL evaluates `error || true` as true), or when
+      #   it combines a bound/unbound test with other conditions. The chain must stay
+      #   in ONE block: split across blocks, a record with no value for the first hop
+      #   leaves the next hop's subject unbound, and it then matches every triple
+      #   with that predicate.
+      # :optional - a lone bound/unbound test. One OPTIONAL block per triple pattern,
+      #   which is how these have always been emitted.
+      def filter_patterns_placement(filter)
+        operators = []
+        attributes = []
+        each_filter(filter) do |f|
+          attributes << f.pattern
+          operators.concat(f.filter_tree.map(&:operator))
+        end
+        tests_existence = operators.include?(:bound) || operators.include?(:unbound)
+
+        if operators.include?(:or) && attributes.uniq.length > 1
+          :optional_groups
+        elsif tests_existence && operators.length > 1
+          :optional_groups
+        elsif tests_existence
+          :optional
+        else
+          :required
+        end
+      end
+
+      # Yields `filter` and every filter nested inside it.
+      def each_filter(filter, &block)
+        yield filter
+        filter.filter_tree.each do |filter_operation|
+          each_filter(filter_operation.value, &block) if filter_operation.value.instance_of?(Goo::Filter)
+        end
+      end
+
       def filter_query_strings(collection, graphs, klass,
                                optional_patterns, patterns,
                                query_filters)
@@ -429,17 +489,18 @@ module Goo
         query_filters&.each do |query_filter|
           filter_operations = []
           filter_patterns = []
-          type = query_filter_sparql(klass, query_filter, filter_patterns, filter_graphs,
-                                     filter_operations, internal_variables,
-                                     inspected_patterns, collection)
+          query_filter_sparql(klass, query_filter, filter_patterns, filter_graphs,
+                              filter_operations, internal_variables,
+                              inspected_patterns, collection)
           query_filter_str << filter_operations.join(' ')
           graphs.concat(filter_graphs) unless filter_graphs.empty?
-          unless filter_patterns.empty?
-            if type == :optional
-              optional_patterns.concat(filter_patterns)
-            else
-              patterns.concat(filter_patterns)
-            end
+          case filter_patterns_placement(query_filter)
+          when :optional_groups
+            optional_patterns.concat(filter_patterns.map { |chain| OptionalGroup.new(chain) })
+          when :optional
+            optional_patterns.concat(filter_patterns.flatten(1))
+          else
+            patterns.concat(filter_patterns.flatten(1))
           end
           #filter_variables << inspected_patterns.values.last
         end
