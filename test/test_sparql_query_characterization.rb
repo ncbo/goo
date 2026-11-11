@@ -236,6 +236,56 @@ class TestSparqlQueryCharacterization < Goo::TestCase
     assert_equal expected, got
   end
 
+  # An OR over a single attribute keeps its required pattern: a record without the
+  # attribute cannot match either branch.
+  def test_filter_or_same_attribute
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Student> ' \
+      'WHERE { ?id a <http://goo.org/default/Student> . ' \
+      '?id <http://goo.org/default/awards> ?internal_join_var_0 . ' \
+      'FILTER(REGEX(STR(?internal_join_var_0) , "a", "i") || ' \
+      'REGEX(STR(?internal_join_var_0) , "b", "i")) }'
+    got = sparql_for("4store") do
+      f = Goo::Filter.new(:awards).regex("a").or(Goo::Filter.new(:awards).regex("b"))
+      Student.where.filter(f).all
+    end
+    assert_equal expected, got
+  end
+
+  # A nested path in an OR'd filter stays together in ONE OPTIONAL block. Split across
+  # blocks, a student with no `enrolled` would leave the second hop's subject unbound
+  # and match every program's credits.
+  def test_filter_or_nested_path
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Student> ' \
+      'FROM <http://goo.org/default/Program> ' \
+      'WHERE { ?id a <http://goo.org/default/Student> . ' \
+      'OPTIONAL { ?id <http://goo.org/default/name> ?internal_join_var_0 . } ' \
+      'OPTIONAL { ?id <http://goo.org/default/enrolled> ?internal_join_var_1 . ' \
+      '?internal_join_var_1 <http://goo.org/default/credits> ?internal_join_var_2 . } ' \
+      'FILTER(str(?internal_join_var_0) =  "Lee" || ?internal_join_var_2 >  "8"^^<http://www.w3.org/2001/XMLSchema#integer>) }'
+    got = sparql_for("4store") do
+      f = (Goo::Filter.new(:name) == "Lee").or(Goo::Filter.new(enrolled: [:credits]) > 8)
+      Student.where.filter(f).all
+    end
+    assert_equal expected, got
+  end
+
+  # A lone unbound test keeps one OPTIONAL per triple pattern, as it always has.
+  def test_filter_unbound_nested_path
+    expected =
+      'SELECT DISTINCT ?id FROM <http://goo.org/default/Student> ' \
+      'FROM <http://goo.org/default/Program> ' \
+      'WHERE { ?id a <http://goo.org/default/Student> . ' \
+      'OPTIONAL { ?id <http://goo.org/default/enrolled> ?internal_join_var_0 . } ' \
+      'OPTIONAL { ?internal_join_var_0 <http://goo.org/default/credits> ?internal_join_var_1 . } ' \
+      'FILTER(!BOUND(?internal_join_var_1)) }'
+    got = sparql_for("4store") do
+      Student.where.filter(Goo::Filter.new(enrolled: [:credits]).unbound).all
+    end
+    assert_equal expected, got
+  end
+
   def test_order_by
     expected =
       'SELECT DISTINCT ?id FROM <http://goo.org/default/University> ' \

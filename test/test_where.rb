@@ -606,6 +606,76 @@ class TestWhere < Goo::TestCase
     assert_equal ["Daniel", "Susan"], st.map { |x| x.name }.sort
   end
 
+  # An OR'd filter on a nested path (student -> program -> credits) must not match a
+  # record that has no value for the first hop of that path.
+  def test_filter_or_with_unset_nested_attribute
+    # Fixture students are all enrolled somewhere; this one is not.
+    loner = Student.new(name: "Zoe", birth_date: DateTime.parse('1978-01-08'))
+    loner.save
+    begin
+      # Only Louis is enrolled in a program with more than 8 credits (Medicine, 10).
+      f = (Goo::Filter.new(:name) == "no-such-name")
+            .or(Goo::Filter.new(enrolled: [ :credits ]) > 8)
+      st = Student.where.filter(f).include(:name).all
+      assert_equal ["Louis"], st.map { |x| x.name }
+
+      # The record without the nested path still matches on the other branch.
+      f = (Goo::Filter.new(:name) == "Zoe")
+            .or(Goo::Filter.new(enrolled: [ :credits ]) > 8)
+      st = Student.where.filter(f).include(:name).all
+      assert_equal ["Louis", "Zoe"], st.map { |x| x.name }.sort
+
+      # Nested path first.
+      f = (Goo::Filter.new(enrolled: [ :credits ]) > 8)
+            .or(Goo::Filter.new(:name) == "Zoe")
+      st = Student.where.filter(f).include(:name).all
+      assert_equal ["Louis", "Zoe"], st.map { |x| x.name }.sort
+
+      # OR over the same nested path: CompSci has 5 credits, Medicine has 10.
+      f = (Goo::Filter.new(enrolled: [ :credits ]) > 8)
+            .or(Goo::Filter.new(enrolled: [ :credits ]) < 6)
+      st = Student.where.filter(f).include(:name).all
+      assert_equal ["Daniel", "John", "Louis", "Robert", "Tim"], st.map { |x| x.name }.sort
+    ensure
+      loner.delete
+    end
+  end
+
+  # OR'd filters combined with ordering, paging and counting, as the ontologies_api
+  # user search does.
+  def test_filter_or_with_order_page_and_count
+    f = Goo::Filter.new(:name).regex("Lee")
+                   .or(Goo::Filter.new(:awards).regex("award"))
+    assert_equal 3, Student.where.filter(f).count
+
+    st = Student.where.filter(f).include(:name).order_by(name: :asc).all
+    assert_equal ["Daniel", "Lee", "Susan"], st.map { |x| x.name }
+
+    skip "pagination with filter and order does not work in 4s" if Goo.backend_4s?
+    page = Student.where.include(:name).page(1, 2).filter(f).order_by(name: :asc).to_a
+    assert_equal ["Daniel", "Lee"], page.map { |x| x.name }
+    assert_equal 3, page.aggregate
+  end
+
+  # bound/unbound combined with other conditions.
+  def test_filter_unbound_combined
+    # No awards, or named Susan (who has one).
+    f = Goo::Filter.new(:awards).unbound.or(Goo::Filter.new(:name) == "Susan")
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["John", "Lee", "Louis", "Robert", "Susan", "Tim"], st.map { |x| x.name }.sort
+
+    f = (Goo::Filter.new(:name) == "Susan").or(Goo::Filter.new(:awards).unbound)
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["John", "Lee", "Louis", "Robert", "Susan", "Tim"], st.map { |x| x.name }.sort
+
+    f = (Goo::Filter.new(:name) == "Lee").and(Goo::Filter.new(:awards).unbound)
+    st = Student.where.filter(f).include(:name).all
+    assert_equal ["Lee"], st.map { |x| x.name }
+
+    f = (Goo::Filter.new(:name) == "Susan").and(Goo::Filter.new(:awards).unbound)
+    assert_equal [], Student.where.filter(f).all
+  end
+
   def test_aggregated
     #students and awards default
     sts = Student.where.include(:name).aggregate(:count,:awards).all
