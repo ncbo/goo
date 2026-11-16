@@ -393,13 +393,7 @@ module Goo
               object = unmapped_string_keys[attr_uri]
             else
               equivalent_predicates[attr_uri].each do |eq_attr|
-                next if unmapped_string_keys[eq_attr].nil?
-
-                if object.nil?
-                  object = unmapped_string_keys[eq_attr].dup
-                elsif object.is_a?(Array)
-                  object.concat(unmapped_string_keys[eq_attr])
-                end
+                object = merge_unmapped_values(object, unmapped_string_keys[eq_attr])
               end
 
               if object.nil?
@@ -408,18 +402,18 @@ module Goo
               end
             end
 
+            # With include_languages, values arrive either as a Hash keyed by
+            # language (plain or language-tagged literals) or as an Array (typed
+            # literals, URIs). Only the Hash is a language map; an Array is the
+            # usual list of values. A single-valued attribute keeps one value
+            # (per language), the shape the language filter gives loaded models.
             if object.is_a?(Hash)
-              object = object.transform_values{|values| Array(values).map{|o|o.is_a?(RDF::URI) ? o : o.object}}
+              object = object.transform_values { |values| unmapped_values_to_objects(klass, attr, Array(values)) }
+              object = object.transform_values(&:first) unless list_attrs.include?(attr)
             else
-              object = object.map {|o| o.is_a?(RDF::URI) ? o : o.object}
+              object = unmapped_values_to_objects(klass, attr, object)
+              object = object.first unless list_attrs.include?(attr)
             end
-
-            if klass.range(attr)
-              object = object.map { |o|
-                o.is_a?(RDF::URI) ? klass.range_object(attr,o) : o }
-            end
-
-            object = object.first unless list_attrs.include?(attr) || include_languages
             if inst.respond_to?(:klass)
               inst[attr] = object
             else
@@ -432,6 +426,37 @@ module Goo
 
         end
       end
+
+      # RDF terms to Ruby values: literals to their object, URIs kept as URIs
+      # (or turned into range instances when the attribute has a range).
+      def self.unmapped_values_to_objects(klass, attr, values)
+        range = klass.range(attr)
+        values.map do |o|
+          if o.is_a?(RDF::URI)
+            range ? klass.range_object(attr, o) : o
+          else
+            o.object
+          end
+        end
+      end
+
+      # Combine the values of two equivalent predicates. Each side is nil, an
+      # Array of RDF terms, or (with include_languages) a Hash of language =>
+      # RDF terms. When either side is a Hash, an Array side is filed under
+      # "@none", the key the language filter uses for values without a language.
+      def self.merge_unmapped_values(current, values)
+        return current if values.nil?
+        return values.is_a?(Hash) ? values.transform_values(&:to_a) : values.to_a if current.nil?
+
+        if current.is_a?(Hash) || values.is_a?(Hash)
+          to_language_map = ->(v) { v.is_a?(Hash) ? v : { "@none" => v.to_a } }
+          to_language_map.(current).merge(to_language_map.(values)) { |_lang, a, b| a.to_a + b.to_a }
+        else
+          current.to_a + values.to_a
+        end
+      end
+      private_class_method :unmapped_values_to_objects, :merge_unmapped_values
+
       def self.find(id, *options)
         id = RDF::URI.new(id) if !id.instance_of?(RDF::URI) && self.name_with == :id
         id = id_from_unique_attribute(name_with(),id) unless id.instance_of?(RDF::URI)
